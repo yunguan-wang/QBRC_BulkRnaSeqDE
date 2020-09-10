@@ -1,0 +1,39 @@
+In this folder
+
+expression.pl -> summarize4expression.py -> DE.r
+
+---------------------------------------
+
+File: expression.pl
+
+Description: This perl script executes QC, alignment, and counting for raw RNA-seq data
+
+----------------------------------------
+
+File: summarize4expression.py
+
+Description: This script examines the output from expression.pl for all analyzed samples, and summarizes the expression data into matrix format
+
+-----------------------------------------
+
+File: DE.r
+
+Description: This R script takes the output of summarize4expression.py and performs regular RNA differential analyses
+
+-----------------------------------------
+
+Folder: script
+
+Description: This folder stores dependency scripts for the main scripts
+
+-----------------------------------------
+
+Folder: example_data
+
+Description: This folder stores example input data for the pipeline
+
+-----------------------------------------
+
+Folder: results
+
+Description: This folder stores the example output of the pipeline
