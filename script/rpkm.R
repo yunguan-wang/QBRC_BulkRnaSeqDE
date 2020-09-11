@@ -8,7 +8,7 @@ rpkm<-function(x,count)
   if (sum(x$expression)==0) {stop("Error: gene expression count is 0!")}
   if (count=="count") 
   {
-    x$expression=round(x$expression)
+    #x$expression=round(x$expression)
     return(x)
   }
   x$expression=x$expression/sum(x$expression)*10e6

@@ -146,7 +146,7 @@ def outputSumFile(geneDic, sumFile, samples):
 			counts = gene2samples[sample]
 			row.append(counts)
 		rows.append(row)
-	writeCsvFile(sumFile, rows, delimiter=',')
+	writeCsvFile(sumFile, rows, delimiter='\t')
 
 # get the list of chromosome arms from armLoc
 def getArms(armLoc):

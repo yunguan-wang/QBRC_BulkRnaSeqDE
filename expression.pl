@@ -8,10 +8,10 @@ use Cwd 'abs_path';
 # (2) gtf file
 # (3) output folder
 # (4) number of threads to use
-# (5) pdx or not. "PDX" or "human". if "PDX", can only handle paired-end sequencing reads
+# (5) pdx or not. "PDX" or "human" or "mouse". if "PDX", can only handle paired-end sequencing reads
 # (6) disambiguate path: prepared by Yunguan (yunguan.wang@utsouthwestern.edu), 
 #     default: /project/shared/xiao_wang/software/disambiguate_pipeline
-# (7) count: "rpkm" or "count" (integer)?
+# (7) count: "rpkm" or "count" (integer)? This must match with the input for summarize4expression.py
 #
 #perl /project/bioinformatics/Xiao_lab/shared/neoantigen/code/expression/expression.pl \
 #/project/shared/xiao_wang/data/hg38/STAR:\
