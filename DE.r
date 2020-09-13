@@ -11,13 +11,13 @@
 
 #   --output [OUTPUT], -o [OUTPUT] Output path. Default = "./results"
 
-#   --gsea_ref [GSEA_REF], -r [GSEA_REF] GSEA library path. Default = "./example_data/h.all.v7.0.symbols.gmt".
+#   --gsea_ref [GSEA_REF], -r [GSEA_REF] GSEA library path. Must specify full path. Default = "/project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt".
 
 #   --gsea_plot [GSEA_PLOT], -p [GSEA_PLOT] If GSEA plots will be made. By default no plots are made. Revert with "T"
 
 # Try this:
 # Rscript DE.r ./example_data/example_expression.txt ./example_data/example_group.txt -o ./results 
-#   -r ./example_data/h.all.v7.0.symbols.gmt -p T
+#   -r /project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt -p T
 
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
@@ -68,8 +68,16 @@ parser$add_argument(
   help='GSEA library path. Default = "/project/shared/brugarolas_wang_xiao/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt".')
 
 parser$add_argument(
-  '--gsea_plot','-p',nargs='?', default='N',
+  '--gsea_plot','-g',nargs='?', default='N',
   help='If GSEA plots will be made. By default no plots are made. Revert with "T"')
+
+parser$add_argument(
+  '--fccutoff','-f',nargs='?', default=2, type='double',
+  help='Log fold change cutoff for volcano plot.')
+
+parser$add_argument(
+  '--pcutoff','-p',nargs='?', default=1e-3, type='double',
+  help='Adjusted p-value cutoff for volcano plot.')
 
 args <- parser$parse_args()
 cts <- args$counts_fn
@@ -77,6 +85,8 @@ design <- args$design_fn
 output_path <- args$output
 gsea_ref <- args$gsea_ref
 gsea_plot <- args$gsea_plot
+fc_cutoff <- args$fccutoff
+pval_cutoff <- args$pcutoff
 
 # --------
 # Preprocessing input data
@@ -103,15 +113,14 @@ for (i in 1:dim(contrast_groups)[1]) {
 } 
 
 # Align dataset with design
-design = subset(design,row.names(design) %in% colnames(cts))
-cts = cts[,row.names(design)]
-colnames(design) = c('condition','Contrasts')
+design <- subset(design,row.names(design) %in% colnames(cts))
+cts <- cts[,row.names(design)]
+colnames(design) <- c('condition','Contrasts')
 
 # --------
 # DEseq2 analysis
-dds <- DESeqDataSetFromMatrix(countData = cts,
-                              colData = design,
-                              design = ~ condition)
+dds <- DESeqDataSetFromMatrix(
+  countData = cts, colData = design, design = ~ condition)
 # Simply checking for not expressed genes, filter at sum of counts of all
 # samples >= 10
 keep <- rowSums(counts(dds)) >= 10
@@ -124,11 +133,12 @@ dds <- nbinomWaldTest(dds)
 vsd <- vst(dds, blind=FALSE)
 pcaData <- plotPCA(vsd, intgroup=c("condition"), returnData=TRUE)
 percentVar <- round(100 * attr(pcaData, "percentVar"))
-ggplot(pcaData, aes(PC1, PC2, color=condition)) +
+ggplot(
+  pcaData, aes(PC1, PC2, color=condition)) +
   geom_point(size=3) +
   xlab(paste0("PC1: ",percentVar[1],"% variance")) +
   ylab(paste0("PC2: ",percentVar[2],"% variance"))
-ggsave('PCA plot.pdf',height = 5, width = 5)
+ggsave('PCA_plot.pdf',height = 5, width = 5)
 
 # Write normalized count to results.
 export_counts <- assay(vsd)
@@ -151,15 +161,15 @@ for (c in analysis){
   dir.create(file.path(output_prefix), showWarnings = FALSE)
   # writing results
   write.table(as.data.frame(res),
-            file=paste(output_prefix,'DEG.txt'),sep='\t')
+            file=paste(output_prefix,'/DEG.txt',sep=""),sep='\t') # by wtwt5237
   
   # Volcano plot
   EnhancedVolcano(
     res, lab = rownames(res),x = 'log2FoldChange',y = 'pvalue',xlim = c(-5, 5),
-    ylim = c(0,10),
-    pCutoff = 0.001,title = '', subtitle = output_prefix,pointSize = 1
+    ylim = c(0,10), pCutoff = pval_cutoff,title = '', FCcutoff = fc_cutoff,
+    subtitle = output_prefix
     )
-  ggsave(paste(output_prefix," DEG Volcano plot.pdf",sep = ''))
+  ggsave(paste(output_prefix,"/DEG_Volcano_plot.pdf",sep = '')) # by wtwt5237
   
   # Heatmap
   res_heatmap = res[res$padj<=0.05& !is.na(res$padj),]
@@ -169,7 +179,7 @@ for (c in analysis){
   pheatmap(
     heatmap_mats,annotation_col = design['condition'],show_rownames=F,
     scale = 'row', 
-    filename = paste(output_prefix," DEG heatmap.pdf",sep = ''))
+    filename = paste(output_prefix,"/DEG_heatmap.pdf",sep = '')) # by wtwt5237
   
   # ========
   # GSEA analysis
@@ -189,7 +199,7 @@ for (c in analysis){
   df_pathway <- as.data.frame(fgseaResTidy_c)
   df_pathway$leadingEdge <- unlist(lapply(df_pathway$leadingEdge, function (x){
     paste(x,collapse=', ')}))
-  write.table(df_pathway, file=paste(output_prefix,'pathways.txt'), sep='\t')
+  write.table(df_pathway, file=paste(output_prefix,'/pathways.txt',sep=""), sep='\t') # by wtwt5237
   
   # Todo: Added a handle to turn this off in argument.
   # Bar plot of all pathways passing padj <=0.25 mark. 
@@ -200,21 +210,22 @@ for (c in analysis){
     labs(x="Pathway", y="Normalized Enrichment Score",
           title="KEGG from GSEA") +
     theme_minimal()
-  ggsave(paste(output_prefix, " GSEA.pdf"), width=9,height=16)
+  ggsave(paste(output_prefix, "/GSEA.pdf",sep=""), width=9,height=16) # by wtwt5237
   
   # Make all GSEA plots
   if (gsea_plot == 'T'){
     if(! dir.exists('GSEA_plots')){
       dir.create('GSEA_plots')
     }
+    
+    if (!dir.exists(paste(output_prefix,"/GSEA_plots",sep=""))) # by wtwt5237
+    dir.create(paste(output_prefix,"/GSEA_plots",sep="")) # by wtwst5237
+
     for (pathway_name in fgseaResTidy_c$pathway){
       plotEnrichment(pathway_kegg[[pathway_name]], ranks)
-      ggsave(paste('GSEA_plots/',output_prefix, pathway_name, '.pdf',sep=''))
+      ggsave(paste(output_prefix,'/GSEA_plots/', pathway_name, '.pdf',sep='')) # by wtwt5237
     }
   }
 }
 
-
-
-
-
+warnings() # by wtwt5237
