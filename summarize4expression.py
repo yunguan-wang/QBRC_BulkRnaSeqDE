@@ -1,13 +1,16 @@
 '''
-Summarize the expression level from the output (transcript.featureCounts) of Tao's RNAseq pipeline, output the table with one column per sample and one row per gene. 
+Summarize the expression level from the output (transcript.featureCounts) of expression.pl, and output 
+the gene expression level in table with one column per sample and one row per gene. 
 
 The example to run this script:
 
 - for human samples
-python3 summarizeByCoverage.py --designFile human.design4expressionsum.txt --countsFileName transcript.featureCounts --refFlat hs38d1.fa_cnvkit.txt --sumFile human.sum.txt 
+python3 summarizeByCoverage.py --designFile human.design4expressionsum.txt --countsFileName \
+	transcript.featureCounts --refFlat hs38d1.fa_cnvkit.txt --sumFile human.sum.txt 
 
 - for mouse samples
-python3 summarizeByCoverage.py --designFile mouse.design4expression.txt.sum --countsFileName transcript.featureCounts --refFlat mm10.fasta_cnvkit.txt --sumFile human.sum.txt 
+python3 summarizeByCoverage.py --designFile mouse.design4expression.txt.sum --countsFileName \
+	transcript.featureCounts --refFlat mm10.fasta_cnvkit.txt --sumFile human.sum.txt 
 
 To get help for each parameter of the script, please run: python3 summarizeByCoverage.py -h
 '''
@@ -70,7 +73,7 @@ def replaceGeneidByGene(geneDic, geneid2gene):
 					geneDicnew[gene][sample] = []
 				geneDicnew[gene][sample].append(geneDic[geneid][sample])
 		else:
-			print('Warning, transcript ID (Geneid) {} from transcript.featureCounts files is not in refFlat file'.format(geneid))
+			print('Warning: transcript ID (Geneid) {} from transcript.featureCounts files is not in refFlat file'.format(geneid))
 			# keep the geneid in geneDic if geneid is not in geneid2gene (refFlat file)
 			#geneDicnew[geneid] = geneDic[geneid]
 	
@@ -99,7 +102,7 @@ def getExpressions(margs, samples):
 # counts4samples: {sample: counts, ...}
 #
 # expressions: {sample:counts, ...}
-# counts: [..., rpkm]
+# counts: [..., expressionValue]
 def summarize4expressionGeneLevel(expressions):
 	geneDic = {}
 	for sample,rows in expressions.items():
@@ -113,6 +116,17 @@ def summarize4expressionGeneLevel(expressions):
 			geneDic[gene][sample] += counts
 
 	return geneDic
+
+# Convert the float to integer for the values of of gene expression level
+def float2int4expression(geneDic):
+	geneDicNew = {}
+	print("hello1", geneDic)
+	for gene,counts4samples in geneDic.items():
+		geneDicNew[gene] = {}
+		for sample,count in counts4samples.items():
+			geneDicNew[gene][sample] = int(count)
+			print('hello', gene, sample,count, geneDicNew[gene][sample])
+	return geneDicNew
 
 
 # add qc info from csvfile to qcDic
@@ -157,7 +171,8 @@ def summarize4qc(designRows):
 
 
 def mainFunc(args4main):
-	print('start', datetime.datetime.now())
+	print('start at', datetime.datetime.now())
+
 	designFile = args4main['designFile']
 	designRows = tools.readDictCsvFile(designFile, delimiter='\t')
 
@@ -186,13 +201,14 @@ def mainFunc(args4main):
 
 	# addup the expression level values of all transcripts from the specific gene
 	print("Start replacing gene ID with gene name at", datetime.datetime.now())
-	#print('before replace geneid, geneDic[NR_075077][Double15T1]', geneDic['NR_075077']['Double15T1'])
 	geneDic = replaceGeneidByGene(geneDic, geneid2gene)
-	#print('after replace geneid, geneDic[C1orf141][Double15T1]', geneDic['C1orf141']['Double15T1'])
 
 	# average the expression level of mutliple transcripts per a gene, namely, expression level of a gene
 	geneDicAvg = avgTranscriptsPerGene(geneDic)
-	#print('after average, geneDic[C1orf141][Double15T1]', geneDicAvg['C1orf141']['Double15T1'])
+
+	# round the float value of gene expression level to integer if requested
+	if args4main['count'] == 'count':
+		geneDicAvg = float2int4expression(geneDicAvg)
 
 	sumFile = args4main['sumFile'].strip()
 	geneDic = geneDicAvg
@@ -204,7 +220,7 @@ def mainFunc(args4main):
 	sumFile4qc = sumFile + '.qc'
 	tools.outputSumFile(qcDic, sumFile4qc, samples)
 	#
-	print('end', datetime.datetime.now())
+	print('end at', datetime.datetime.now())
 
 
 if __name__ == "__main__":
@@ -223,23 +239,30 @@ if __name__ == "__main__":
 		default='',
 		help = "Design file with header line. It contains three columns separated by tab: Patient_ID, \
 			Tumor_sample_ID, Path2output. Patient_ID is identifier of patient, Tumor_sample_ID \
-			is the identifer of tumor sample, Path2output is the output directory of Tao's RNAseq pipeline \
-			for the tumor sample. The column name in header line must be Patient_ID, \
-			Tumor_sample_ID, Path2output.",
+			is the identifer of tumor sample, Path2output is the path pointing to the sample directory \
+			where the gene expression results (output files produced by expression.pl) for the sample are \
+			put. The first line in design file is header line: 'Patient_ID', 'Tumor_sample_ID', \
+			'Path2output' (without quotes).",
 		)
 
 	parser.add_argument(
 		'--countsFileName', 
 		required = True,
-		type=str,
 		default='transcript.featureCounts',
 		help = 'Feature count file of transcripts, e.g. transcript.featureCounts',
 		)
 
 	parser.add_argument(
+		'--count', 
+		required = True,
+		choices=['count', 'rpkm'],
+		default='count',
+		help = "parameter determines whether the final counts are raw counts ('count') or RPKM ('rpkm')",
+		)
+
+	parser.add_argument(
 		'--refFlat', 
 		required = True,
-		type=str,
 		default='',
 		help = 'RefFlat file mapping gene symbol to transcript ID, e.g. \
 			/project/shared/xiao_wang/data/hg38/hs38d1.fa_cnvkit.txt for human samples, \
@@ -249,7 +272,6 @@ if __name__ == "__main__":
 	parser.add_argument(
 		'--sumFile', 
 		required = True,
-		type=str,
 		default='',
 		help = 'Output file, which is a csv like file with columns separated by tab',
 		)
@@ -259,6 +281,7 @@ if __name__ == "__main__":
 	args4mainFunc =	{
 				'designFile': args.designFile.strip(),
 				'countsFileName': args.countsFileName.strip(),
+				'count': args.count.strip(),
 				'refFlat': args.refFlat.strip(),
 				'sumFile': args.sumFile.strip(),
 			}
