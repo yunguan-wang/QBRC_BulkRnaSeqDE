@@ -9,11 +9,20 @@
 # optional arguments:
 #   -h, --help            show this help message and exit
 
-#   --output [OUTPUT], -o [OUTPUT] Output path. Default = "./results"
+#   --output [OUTPUT], -o [OUTPUT]
+#     Output path. Default = "./results"
 
-#   --gsea_ref [GSEA_REF], -r [GSEA_REF] GSEA library path. Must specify full path. Default = "/project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt".
+#   --gsea_ref [GSEA_REF], -r [GSEA_REF] 
+#     GSEA library path. Must specify full path. Default = "/project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt".
 
-#   --gsea_plot [GSEA_PLOT], -p [GSEA_PLOT] If GSEA plots will be made. By default no plots are made. Revert with "T"
+#   --gsea_plot [GSEA_PLOT], -p [GSEA_PLOT] 
+#     If GSEA plots will be made. By default no plots are made. Revert with "T"
+
+#   --fccutoff [FCCUTOFF], -f [FCCUTOFF]
+#     Log fold change cutoff for volcano plot.
+
+#   --pcutoff [PCUTOFF], -p [PCUTOFF]
+#     Adjusted p-value cutoff for volcano plot.
 
 # Try this:
 # Rscript DE.r ./example_data/example_expression.txt ./example_data/example_group.txt -o ./results 
