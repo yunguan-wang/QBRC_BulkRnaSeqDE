@@ -19,7 +19,7 @@
 #     If GSEA plots will be made. By default no plots are made. Revert with "T"
 
 #   --fccutoff [FCCUTOFF], -f [FCCUTOFF]
-#     Log fold change cutoff for volcano plot.
+#     Log fold change cutoff for volcano plot and the heatmap plot
 
 #   --pcutoff [PCUTOFF], -p [PCUTOFF]
 #     Adjusted p-value cutoff for volcano plot.
@@ -149,6 +149,12 @@ ggplot(
   ylab(paste0("PC2: ",percentVar[2],"% variance"))
 ggsave('PCA_plot.pdf',height = 5, width = 5)
 
+# Distance plot
+corr <- cor(assay(vsd), method='pearson')
+pheatmap(
+  corr,annotation_col = design['condition'],show_rownames=F,cluster_cols = T,
+  filename = "Sample distance heatmap.pdf",sep = '')
+
 # Write normalized count to results.
 export_counts <- assay(vsd)
 write.table(export_counts,'deseq2 vst counts.csv', sep=',')
@@ -181,13 +187,15 @@ for (c in analysis){
   ggsave(paste(output_prefix,"/DEG_Volcano_plot.pdf",sep = '')) # by wtwt5237
   
   # Heatmap
-  res_heatmap = res[res$padj<=0.05& !is.na(res$padj),]
-  tops = rownames(res_heatmap[order(res_heatmap$stat, decreasing = T),])[1:200]
-  bots = rownames(res_heatmap[order(res_heatmap$stat),])[1:200]
-  heatmap_mats = export_counts[c(tops,bots),]
+  res_heatmap = res[res$padj<=pval_cutoff & !is.na(res$padj),] # by wtwt5237
+  # by wtwt5237 -start
+  tops_abs = rownames(res_heatmap[order(abs(res_heatmap$stat), decreasing = T),])[1:min(200,dim(res_heatmap)[1])]
+  heatmap_mats = export_counts[tops_abs,]
+
+  # by wtwt5237 - end
   pheatmap(
-    heatmap_mats,annotation_col = design['condition'],show_rownames=F,
-    scale = 'row', 
+    heatmap_mats,annotation_col = design['condition'],show_rownames=T, # by wtwt5237
+    scale = 'row',cluster_cols = F, # by wtwt5237 
     filename = paste(output_prefix,"/DEG_heatmap.pdf",sep = '')) # by wtwt5237
   
   # ========
