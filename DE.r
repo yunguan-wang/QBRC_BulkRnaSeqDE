@@ -190,6 +190,9 @@ for (c in analysis){
   res_heatmap = res[res$padj<=pval_cutoff & !is.na(res$padj),] # by wtwt5237
   # by wtwt5237 -start
   tops_abs = rownames(res_heatmap[order(abs(res_heatmap$stat), decreasing = T),])[1:min(200,dim(res_heatmap)[1])]
+  if (length(tops_abs) == 0) {
+    next
+  }
   heatmap_mats = export_counts[tops_abs,]
 
   # by wtwt5237 - end
