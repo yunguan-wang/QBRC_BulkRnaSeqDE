@@ -27,6 +27,7 @@
 # Try this:
 # Rscript DE.r ./example_data/example_expression.txt ./example_data/example_group.txt -o ./results 
 #   -r /project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt -p T
+#   -f 2 -p 0.05
 
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
@@ -102,6 +103,7 @@ pval_cutoff <- args$pcutoff
 
 # gene names must not have repeats
 design <- read.table(design,stringsAsFactors = F,header=T, sep='\t',row.names = 1)
+design=design[order(design$Group),] # by wtwt5237
 cts <- read.table(cts, stringsAsFactors = F,header=T, sep='\t', row.names = 1)
 
 # Make output file and set path to it

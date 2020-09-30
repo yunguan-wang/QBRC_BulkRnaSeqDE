@@ -1,6 +1,12 @@
 In this folder
 
-expression.pl -> summarize4expression.py -> DE.r
+job_expression.pl (expression.pl) -> summarize4expression.py -> DE.r
+
+---------------------------------------
+
+File: job_expression.pl
+
+Description: This perl script is a wrapper around expression.pl for easy submission of the expression analysis jobs
 
 ---------------------------------------
 

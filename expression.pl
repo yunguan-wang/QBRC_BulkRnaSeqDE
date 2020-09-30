@@ -1,4 +1,5 @@
 # prerequisite in path: python, featureCounts, STAR (>=2.7.2b), fastqc, disambiguate (use conda env by Yunguan)
+# need 256 GB nodes
 #!/usr/bin/perl
 use strict;
 use warnings;
@@ -11,16 +12,16 @@ use Cwd 'abs_path';
 # (5) pdx or not. "PDX" or "human" or "mouse". if "PDX", can only handle paired-end sequencing reads
 # (6) disambiguate path: prepared by Yunguan (yunguan.wang@utsouthwestern.edu), 
 #     default: /project/shared/xiao_wang/software/disambiguate_pipeline
-# (7) count: "rpkm" or "count" (integer)? This must match with the input for summarize4expression.py
+# (7) count: "rpkm" or "count" (integer)? For running DE.r, use "count"
 #
-#perl /project/bioinformatics/Xiao_lab/shared/neoantigen/code/expression/expression.pl \
+#perl /project/shared/xiao_wang/software/rnaseqDE/expression.pl \
 #/project/shared/xiao_wang/data/hg38/STAR:\
 #/archive/BICF/shared/Kidney/rna/RAW/SAM24297102_1_R1.fastq.gz,\
 #/archive/BICF/shared/Kidney/rna/RAW/SAM24297102_1_R2.fastq.gz \
 #/project/shared/xiao_wang/data/hg38/hg38_genes.gtf \
 #/project/SCCC/Wang_lab/shared/tmp \
 #32 human \
-#/project/shared/xiao_wang/software/disambiguate_pipeline
+#/project/shared/xiao_wang/software/disambiguate_pipeline \
 #count
 
 my ($bam_file,$gtf,$output_folder,$thread,$pdx,$disambiguate,$count)=@ARGV;
@@ -40,17 +41,20 @@ $index=$1;
 $fastq=$2;
 $fastq=~s/,/ /;
 
-#############33  preprocess fastq files  ####################
+# delete emptoy reads
+system("mkdir ".$output_folder."/clean_fastq");
 
-$i=1;
-$fastq_new="";
-
-foreach (split(" ",$fastq))
+if ($fastq!~/\s$/)
 {
-  system("zcat ".$_." > ".$output_folder."/zcat_".$i.".fastq");
-  $fastq_new.=$output_folder."/zcat_".$i++.".fastq ";
+  system("python ".$path."/script/remove_empty_reads_pair.py ".
+    "-out ".$output_folder."/clean_fastq -RNAfile ".$fastq);
+  $fastq=$output_folder."/clean_fastq/fastq1.fq ".$output_folder."/clean_fastq/fastq2.fq";
+}else
+{
+  system("python ".$path."/script/remove_empty_reads_single.py ".
+    "-out ".$output_folder."/clean_fastq -RNAfile ".$fastq);
+  $fastq=$output_folder."/clean_fastq/fastq1.fq";  
 }
-$fastq=$fastq_new;
 
 #################  quality check  ############################
 
@@ -81,8 +85,7 @@ if ($pdx eq "PDX")
   system("rm -f -r ".$output_folder."/fastq1.fastq.mouse");
   system("rm -f -r ".$output_folder."/fastq2.fastq.mouse");
   $fastq=$output_folder."/fastq1.fastq.human ".$output_folder."/fastq2.fastq.human";
-  unlink($output_folder."/zcat_1.fastq");
-  unlink($output_folder."/zcat_2.fastq");
+  system("rm -f -r ".$output_folder."/clean_fastq");
 }
 
 # STAR alignment
@@ -90,6 +93,9 @@ system("STAR --runThreadN ".$thread." --genomeDir ".$index." --readFilesIn ".$fa
   "/ --outSAMtype BAM Unsorted");
 unlink($output_folder."/Unmapped.out.mate1");
 unlink($output_folder."/Unmapped.out.mate2");
+system("rm -f -r ".$output_folder."/clean_fastq");
+unlink($output_folder."/fastq1.fastq.human");
+unlink($output_folder."/fastq2.fastq.human");
 
 # featureCounts
 $bam_file=$output_folder."/Aligned.out.bam";
@@ -112,8 +118,3 @@ unlink($output_folder."/Log.progress.out");
 unlink($output_folder."/SJ.out.tab");
 unlink($output_folder."/*summary");
 unlink($bam_file);
-unlink($output_folder."/zcat_1.fastq");
-unlink($output_folder."/zcat_2.fastq");
-unlink($output_folder."/fastq1.fastq.human");
-unlink($output_folder."/fastq2.fastq.human");
-

@@ -120,12 +120,12 @@ def summarize4expressionGeneLevel(expressions):
 # Convert the float to integer for the values of of gene expression level
 def float2int4expression(geneDic):
 	geneDicNew = {}
-	print("hello1", geneDic)
 	for gene,counts4samples in geneDic.items():
 		geneDicNew[gene] = {}
 		for sample,count in counts4samples.items():
-			geneDicNew[gene][sample] = int(count)
-			print('hello', gene, sample,count, geneDicNew[gene][sample])
+			geneDicNew[gene][sample] = round(count)
+			#if count > 0:
+			#	print('hello', gene, sample,count, geneDicNew[gene][sample])
 	return geneDicNew
 
 
@@ -208,6 +208,7 @@ def mainFunc(args4main):
 
 	# round the float value of gene expression level to integer if requested
 	if args4main['count'] == 'count':
+		print("Round the gene counts values to integer.")
 		geneDicAvg = float2int4expression(geneDicAvg)
 
 	sumFile = args4main['sumFile'].strip()
