@@ -1,4 +1,4 @@
-# Differential analysis with DESeq2
+# Differential analysis with DESeq2 >= 1.26
 # use: R>=3.6
 
 # positional arguments:
@@ -17,6 +17,8 @@
 
 #   --gsea_plot [GSEA_PLOT], -p [GSEA_PLOT] 
 #     If GSEA plots will be made. By default no plots are made. Revert with "T"
+#   --species [SPECIES], -s [SPECIES]
+#     species from which the gene symbol is in. {human,mouse}
 
 #   --fccutoff [FCCUTOFF], -f [FCCUTOFF]
 #     Log fold change cutoff for volcano plot and the heatmap plot
@@ -32,7 +34,7 @@
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 
-packages <- c("EnhancedVolcano", "DESeq2","fgsea")
+packages <- c("EnhancedVolcano", "DESeq2","fgsea",'fastmatch','pheatmap')
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
   BiocManager::install(setdiff(packages, rownames(installed.packages())))
 }
@@ -52,10 +54,10 @@ suppressMessages(library('pheatmap'))
 suppressMessages(library('argparse'))
 
 # testing
-# design = 'Y:/software/rnaseqDE/example_data/example_group.txt'
-# cts = 'Y:/software/rnaseqDE/example_data/example_expression.txt'
-# output_path = 'Y:/software/rnaseqDE/example_results/'
-# gsea_ref = "W:/ref/msigdb/h.all.v7.0.symbols.gmt"
+# design = './example_data/example_group.txt'
+# cts = './example_data/example_expression.txt'
+# output_path = './example_results/'
+# gsea_ref = "./example_data/h.all.v7.0.symbols.gmt"
 
 parser <- ArgumentParser(
   description='Differential analysis with DESeq2')
@@ -74,12 +76,16 @@ parser$add_argument(
 
 parser$add_argument(
   '--gsea_ref','-r',nargs='?', 
-  default='/project/shared/brugarolas_wang_xiao/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt',
-  help='GSEA library path. Default = "/project/shared/brugarolas_wang_xiao/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt".')
+  default='/project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt',
+  help='GSEA library path. Default = "/project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt".')
 
 parser$add_argument(
   '--gsea_plot','-g',nargs='?', default='N',
   help='If GSEA plots will be made. By default no plots are made. Revert with "T"')
+
+parser$add_argument(
+  '--species','-s',nargs='?', default='human',
+  help='Species from which the gene symbol is in. {human, mouse}')
 
 parser$add_argument(
   '--fccutoff','-f',nargs='?', default=2, type='double',
@@ -97,6 +103,7 @@ gsea_ref <- args$gsea_ref
 gsea_plot <- args$gsea_plot
 fc_cutoff <- args$fccutoff
 pval_cutoff <- args$pcutoff
+species <- args$species
 
 # --------
 # Preprocessing input data
@@ -105,6 +112,10 @@ pval_cutoff <- args$pcutoff
 design <- read.table(design,stringsAsFactors = F,header=T, sep='\t',row.names = 1)
 design=design[order(design$Group),] # by wtwt5237
 cts <- read.table(cts, stringsAsFactors = F,header=T, sep='\t', row.names = 1)
+# mouse gene to human gene mapping.
+m2h = read.table(
+  '/project/shared/xiao_wang/software/rnaseqDE/M2H_symbol_conversion.txt',
+  stringsAsFactors = F,header=T)
 
 # Make output file and set path to it
 dir.create(file.path(output_path), showWarnings = FALSE)
@@ -116,6 +127,7 @@ analysis = list()
 j=1
 for (i in 1:dim(contrast_groups)[1]) {
   t <- contrast_groups[i,1]
+  if (length(contrast_groups[i,2]) == 0) {next}
   refs <- strsplit(contrast_groups[i,2],',')[[1]]
   for (ref in refs) {
     analysis[[j]] <- list(t,ref)
@@ -208,6 +220,14 @@ for (c in analysis){
   # pre-processing Deseq results
   res$gene = row.names(res)
   res2 = res[,c("gene","stat")]
+  
+  # If input is in mouse symbols, do id conversion before GSEA.
+  if (species == 'human') {
+    res2 = merge(as.data.frame(res2),m2h, by.x = 'gene', by.y = 'Symbol_x')
+    res2 = aggregate(res2$stat, list(res2$Human_symbol), median)
+    colnames(res2) = c('gene','stat')
+  }
+  
   ranks <- deframe(res2)
   pathway_kegg = gmtPathways(gsea_ref)
   
