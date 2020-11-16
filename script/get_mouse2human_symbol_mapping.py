@@ -17,5 +17,5 @@ m2h = pd.DataFrame(m2h.set_index('Symbol_x')['Symbol_y'])
 m2h.name = 'Mouse_symbol'
 m2h.columns = ['Human_symbol']
 m2h.to_csv(
-    '/project/shared/xiao_wang/software/rnaseqDE/M2H_symbol_conversion.txt',
+    '/project/shared/xiao_wang/software/rnaseqDE//scripts/M2H_symbol_conversion.txt',
     sep='\t')
