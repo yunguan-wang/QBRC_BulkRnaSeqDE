@@ -130,7 +130,7 @@ design=design[order(design$Group),] # by wtwt5237
 cts <- read.table(cts, stringsAsFactors = F,header=T, sep='\t', row.names = 1)
 # mouse gene to human gene mapping.
 m2h = read.table(
-  '/project/shared/xiao_wang/software/rnaseqDE//scripts/M2H_symbol_conversion.txt',
+  '/project/shared/xiao_wang/software/rnaseqDE/script/M2H_symbol_conversion.txt',
   stringsAsFactors = F,header=T)
 
 # Make output file and set path to it
