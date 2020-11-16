@@ -1,4 +1,5 @@
 # prerequisite in path: python, featureCounts, STAR (>=2.7.2b), fastqc, disambiguate (use conda env by Yunguan)
+# can now handle hg38, mm10, sacCer3
 # need 256 GB nodes
 #!/usr/bin/perl
 use strict;
@@ -9,10 +10,11 @@ use Cwd 'abs_path';
 # (2) gtf file
 # (3) output folder
 # (4) number of threads to use
-# (5) pdx or not. "PDX" or "human" or "mouse". if "PDX", can only handle paired-end sequencing reads
+# (5) pdx or not. "PDX" or "human" or "mouse" or "yeast". if "PDX", can only handle paired-end sequencing reads
 # (6) disambiguate path: prepared by Yunguan (yunguan.wang@utsouthwestern.edu), 
 #     default: /project/shared/xiao_wang/software/disambiguate_pipeline
 # (7) count: "rpkm" or "count" (integer)? For running DE.r, use "count"
+# (8) temp: "keep" or "delete" temporary files (default is "delete")
 #
 #perl /project/shared/xiao_wang/software/rnaseqDE/expression.pl \
 #/project/shared/xiao_wang/data/hg38/STAR:\
@@ -22,9 +24,9 @@ use Cwd 'abs_path';
 #/project/SCCC/Wang_lab/shared/tmp \
 #32 human \
 #/project/shared/xiao_wang/software/disambiguate_pipeline \
-#count
+#count delete
 
-my ($bam_file,$gtf,$output_folder,$thread,$pdx,$disambiguate,$count)=@ARGV;
+my ($bam_file,$gtf,$output_folder,$thread,$pdx,$disambiguate,$count,$temp)=@ARGV;
 my ($i,$dir,$path,$index,$fastq,$fastq_new);
 my $parameters=" --primary -O -t exon -g transcript_id -T ".$thread." --largestOverlap --minOverlap 3 --ignoreDup -p -P -B -C";
 
@@ -113,8 +115,12 @@ system("Rscript ".$path."/script/rpkm.R ".$output_folder."/transcript.featureCou
 
 ##############  cleanup  #######################
 
-unlink($output_folder."/Log.out");
-unlink($output_folder."/Log.progress.out");
-unlink($output_folder."/SJ.out.tab");
-unlink($output_folder."/*summary");
-unlink($bam_file);
+if ($temp eq "delete")
+{
+  unlink($output_folder."/Log.out");
+  unlink($output_folder."/Log.progress.out");
+  unlink($output_folder."/SJ.out.tab");
+  unlink($output_folder."/*summary");
+  unlink($bam_file);
+}
+
