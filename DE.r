@@ -26,6 +26,12 @@
 #   --pcutoff [PCUTOFF], -p [PCUTOFF]
 #     Adjusted p-value cutoff for volcano plot.
 
+#   --partialheatmap, -ph
+#     Toggle to only show relevant samples in DEG heatmap. Default show all samples
+
+#   --nocolclustering, -nc
+#     Toggle to turn off column clustering in DEG heatmap. Default is to cluster
+
 # Try this:
 # Rscript DE.r ./example_data/example_expression.txt ./example_data/example_group.txt -o ./results 
 #   -r /project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt -p T
@@ -94,6 +100,14 @@ parser$add_argument(
 parser$add_argument(
   '--pcutoff','-p',nargs='?', default=1e-3, type='double',
   help='Adjusted p-value cutoff for volcano plot.')
+  
+parser$add_argument(
+  '--partialheatmap','-ph',action = 'store_true', default = FALSE,
+  help = 'Toggle to only show relevant samples in DEG heatmap. Default show all samples')
+
+parser$add_argument(
+    '--nocolclustering', '-nc', action = 'store_false', default = TRUE,
+    help = 'Toggle to turn off column clustering in DEG heatmap. Default is to cluster')
 
 args <- parser$parse_args()
 cts <- args$counts_fn
@@ -104,6 +118,8 @@ gsea_plot <- args$gsea_plot
 fc_cutoff <- args$fccutoff
 pval_cutoff <- args$pcutoff
 species <- args$species
+partialheatmap <- args$partialheatmap
+clustercol <- args$nocolclustering
 
 # --------
 # Preprocessing input data
@@ -114,7 +130,7 @@ design=design[order(design$Group),] # by wtwt5237
 cts <- read.table(cts, stringsAsFactors = F,header=T, sep='\t', row.names = 1)
 # mouse gene to human gene mapping.
 m2h = read.table(
-  '/project/shared/xiao_wang/software/rnaseqDE/M2H_symbol_conversion.txt',
+  '/project/shared/xiao_wang/software/rnaseqDE//scripts/M2H_symbol_conversion.txt',
   stringsAsFactors = F,header=T)
 
 # Make output file and set path to it
@@ -208,11 +224,14 @@ for (c in analysis){
     next
   }
   heatmap_mats = export_counts[tops_abs,]
-
+  if (partialheatmap == T) {
+      heatmap_samples = row.names(design)[design$condition %in% c('A','B')]
+      heatmap_mats = heatmap_mats[,heatmap_samples]
+  }
   # by wtwt5237 - end
   pheatmap(
     heatmap_mats,annotation_col = design['condition'],show_rownames=T, # by wtwt5237
-    scale = 'row',cluster_cols = F, # by wtwt5237 
+    scale = 'row',cluster_cols = clustercol, # by wtwt5237 
     filename = paste(output_prefix,"/DEG_heatmap.pdf",sep = '')) # by wtwt5237
   
   # ========
@@ -222,7 +241,7 @@ for (c in analysis){
   res2 = res[,c("gene","stat")]
   
   # If input is in mouse symbols, do id conversion before GSEA.
-  if (species == 'human') {
+  if (species == 'mouse') {
     res2 = merge(as.data.frame(res2),m2h, by.x = 'gene', by.y = 'Symbol_x')
     res2 = aggregate(res2$stat, list(res2$Human_symbol), median)
     colnames(res2) = c('gene','stat')
