@@ -2,7 +2,7 @@
 # use: R>=3.6
 
 # positional arguments:
-#   counts_fn             Input counts table, txt or csv. Genes should be in raw counts.
+#   counts_fn             Input counts table, txt format. Genes should be in raw counts.
 
 #   design_fn             Input design table, must be a txt file. First column is condition, second column in contrast. Different contrasts are seperated by ","
 
@@ -34,13 +34,13 @@
 
 # Try this:
 # Rscript DE.r ./example_data/example_expression.txt ./example_data/example_group.txt -o ./results 
-#   -r /project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt -p T
+#   -r /project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt -g T
 #   -f 2 -p 0.05
 
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 
-packages <- c("EnhancedVolcano", "DESeq2","fgsea",'fastmatch','pheatmap')
+packages <- c("DESeq2","fgsea",'fastmatch','pheatmap')
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
   BiocManager::install(setdiff(packages, rownames(installed.packages())))
 }
@@ -52,7 +52,7 @@ if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
 
 suppressMessages(library('DESeq2'))
 suppressMessages(library('ggplot2'))
-suppressMessages(library('EnhancedVolcano'))
+suppressMessages(library('ggrepel'))
 suppressMessages(library('fgsea'))
 suppressMessages(library('dplyr'))
 suppressMessages(library('tibble'))
@@ -91,15 +91,19 @@ parser$add_argument(
 
 parser$add_argument(
   '--species','-s',nargs='?', default='human',
-  help='Species from which the gene symbol is in. {human, mouse}')
+  help='Species from which the gene symbol is in {human, mouse}. Default human')
 
 parser$add_argument(
-  '--fccutoff','-f',nargs='?', default=2, type='double',
-  help='Log fold change cutoff for volcano plot.')
+  '--fccutoff','-f',nargs='?', default=1, type='double',
+  help='Log fold change cutoff for volcano plot. Default 1')
 
 parser$add_argument(
-  '--pcutoff','-p',nargs='?', default=1e-3, type='double',
-  help='Adjusted p-value cutoff for volcano plot.')
+  '--vpcutoff','-vp',nargs='?', default=0.05, type='double',
+  help='Adjusted p-value cutoff for volcano plot. Default 0.05')
+
+parser$add_argument(
+  '--pcutoff','-hp',nargs='?', default=0.05, type='double',
+  help='Adjusted p-value cutoff for heatmap. Default 0.05')
   
 parser$add_argument(
   '--partialheatmap','-ph',action = 'store_true', default = FALSE,
@@ -117,6 +121,7 @@ gsea_ref <- args$gsea_ref
 gsea_plot <- args$gsea_plot
 fc_cutoff <- args$fccutoff
 pval_cutoff <- args$pcutoff
+v_pval_cutoff <- args$vpcutoff
 species <- args$species
 partialheatmap <- args$partialheatmap
 clustercol <- args$nocolclustering
@@ -154,15 +159,20 @@ for (i in 1:dim(contrast_groups)[1]) {
 # Align dataset with design
 design <- subset(design,row.names(design) %in% colnames(cts))
 cts <- cts[,row.names(design)]
-colnames(design) <- c('condition','Contrasts')
 
-# --------
-# DEseq2 analysis
-dds <- DESeqDataSetFromMatrix(
-  countData = cts, colData = design, design = ~ condition)
+# Account for batch effects in design
+if ("Batch" %in% colnames(design)){
+  colnames(design) <- c('condition','Contrasts','Batch')
+  dds <- DESeqDataSetFromMatrix(
+    countData = cts, colData = design, design = ~ condition + Batch)
+} else {
+  colnames(design) <- c('condition','Contrasts')
+  dds <- DESeqDataSetFromMatrix(
+    countData = cts, colData = design, design = ~ condition)
+}
 # Simply checking for not expressed genes, filter at sum of counts of all
 # samples >= 10
-keep <- rowSums(counts(dds)) >= 10
+keep <- rowSums(counts(dds)) >= 2
 dds = dds[keep,]
 
 # PCA based on DESeq2 normalized counts
@@ -209,29 +219,51 @@ for (c in analysis){
             file=paste(output_prefix,'/DEG.txt',sep=""),sep='\t') # by wtwt5237
   
   # Volcano plot
-  EnhancedVolcano(
-    res, lab = rownames(res),x = 'log2FoldChange',y = 'pvalue',xlim = c(-5, 5),
-    ylim = c(0,10), pCutoff = pval_cutoff,title = '', FCcutoff = fc_cutoff,
-    subtitle = output_prefix
-    )
+  data2voc = res[!is.na(res$padj),]
+  data2voc$sig = ifelse(
+    (abs(data2voc$log2FoldChange)>=fc_cutoff) & (data2voc$padj<=v_pval_cutoff),
+    "Significant", "Non-significant")
+  data2voc = as.data.frame(data2voc)
+  data2voc$padj = -log10(data2voc$padj)
+  cols=c("Significant"='darkolivegreen4',"Non-significant"='grey')
+  # Capping logFC magnitude to 10
+  data2voc$log2FoldChange = ifelse(data2voc$log2FoldChange > 10, 10, data2voc$log2FoldChange)
+  data2voc$log2FoldChange = ifelse(data2voc$log2FoldChange < -10, -10, data2voc$log2FoldChange)
+  
+  data2voc = data2voc[order(abs(data2voc$log2FoldChange),decreasing = T),]
+  keep = row.names(data2voc)[data2voc$sig=='Significant'][1:20]
+  keep = keep[!is.na(keep)]
+  data2voc$Gene = NA
+  data2voc[keep,"Gene"] = keep
+
+  ggplot(
+    data2voc,
+    aes(log2FoldChange,padj,label=Gene))+scale_shape_discrete(solid=T)+geom_point(mapping=aes(col=sig),shape=16,size=1)+
+    geom_line(aes(x=-fc_cutoff),linetype="dotted",color='gold')+
+    geom_line(aes(x=fc_cutoff),linetype="dotted",color='gold')+
+    geom_line(aes(y=-log10(v_pval_cutoff)),linetype="dotted",color='gold')+
+    scale_color_manual(values=cols)+geom_text_repel(force=2,segment.size=0.25)+theme_bw()
+  
   ggsave(paste(output_prefix,"/DEG_Volcano_plot.pdf",sep = '')) # by wtwt5237
+  
+  
   
   # Heatmap
   res_heatmap = res[res$padj<=pval_cutoff & !is.na(res$padj),] # by wtwt5237
   # by wtwt5237 -start
-  tops_abs = rownames(res_heatmap[order(abs(res_heatmap$stat), decreasing = T),])[1:min(200,dim(res_heatmap)[1])]
-  if (length(tops_abs) == 0) {
+  tops_abs = rownames(res_heatmap[order(abs(res_heatmap$stat), decreasing = T),])[1:min(100,dim(res_heatmap)[1])]
+  if (length(tops_abs) <= 1) {
     next
   }
   heatmap_mats = export_counts[tops_abs,]
   if (partialheatmap == T) {
-      heatmap_samples = row.names(design)[design$condition %in% c('A','B')]
+      heatmap_samples = row.names(design)[design$condition %in% c(target,ref)]
       heatmap_mats = heatmap_mats[,heatmap_samples]
   }
   # by wtwt5237 - end
   pheatmap(
     heatmap_mats,annotation_col = design['condition'],show_rownames=T, # by wtwt5237
-    scale = 'row',cluster_cols = clustercol, # by wtwt5237 
+    scale = 'row',cluster_cols = clustercol, height = 15,fontsize=6, # by wtwt5237 
     filename = paste(output_prefix,"/DEG_heatmap.pdf",sep = '')) # by wtwt5237
   
   # ========
@@ -247,7 +279,8 @@ for (c in analysis){
     colnames(res2) = c('gene','stat')
   }
   
-  ranks <- deframe(res2)
+  ranks = deframe(res2)
+  ranks = ranks[!is.na(ranks)]
   pathway_kegg = gmtPathways(gsea_ref)
   
   # GSEA PreRank using LFC stat in DESeq results, which is basically logFC.
@@ -269,19 +302,16 @@ for (c in analysis){
     fgseaResTidy_c, aes(reorder(pathway, NES), NES)
   ) + geom_col(aes(fill=padj<0.25)) + coord_flip() +
     labs(x="Pathway", y="Normalized Enrichment Score",
-          title="KEGG from GSEA") +
+          title="GSEA") +
     theme_minimal()
   ggsave(paste(output_prefix, "/GSEA.pdf",sep=""), width=9,height=16) # by wtwt5237
   
   # Make all GSEA plots
   if (gsea_plot == 'T'){
-    if(! dir.exists('GSEA_plots')){
-      dir.create('GSEA_plots')
+    if(! dir.exists(paste(output_prefix,"GSEA_plots",sep=""))){
+      dir.create(paste(output_prefix,"GSEA_plots",sep=""))
     }
     
-    if (!dir.exists(paste(output_prefix,"/GSEA_plots",sep=""))) # by wtwt5237
-    dir.create(paste(output_prefix,"/GSEA_plots",sep="")) # by wtwst5237
-
     for (pathway_name in fgseaResTidy_c$pathway){
       plotEnrichment(pathway_kegg[[pathway_name]], ranks)
       ggsave(paste(output_prefix,'/GSEA_plots/', pathway_name, '.pdf',sep='')) # by wtwt5237
