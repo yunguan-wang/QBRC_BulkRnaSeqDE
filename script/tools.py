@@ -3,6 +3,7 @@ import io
 import csv
 import statistics
 import shutil
+import errno
 
 if __package__ is None or __package__ == '':
 	import constants
@@ -138,7 +139,6 @@ def addSamples(geneDic, samples):
 # gene2samples: {sample:value, ...}
 def outputSumFile(geneDic, sumFile, samples):
 	row4title = [''] + sorted(samples)
-	#str4row4title = '\t'.join(row4title)
 	rows = [row4title]
 	for gene, gene2samples in geneDic.items():
 		row = [gene]
@@ -146,15 +146,37 @@ def outputSumFile(geneDic, sumFile, samples):
 			counts = gene2samples[sample]
 			row.append(counts)
 		rows.append(row)
-	writeCsvFile(sumFile, rows, delimiter='\t')
+	writeCsvFile(sumFile, rows, delimiter=',')
 
 # get the list of chromosome arms from armLoc
-def getArms(armLoc):
-	armids = []
-	for chr,arms in armLoc.items():
-		for arm in arms.keys():
-			armids.append(arm)
-	return armids
+def intersection(p1, p2):
+	a, b = p1
+	c, d = p2
+	# Must be satisfied: a <= b and c <=d 
+	overlap = min(b, d) - max(a, c) + 1
+	return overlap
+
+# geneDic[gene][sample]='' for sample not in geneDic
+def addSamples(geneDic, samples):
+	for gene, gene2samples in geneDic.items():
+		for sample in samples:
+			if sample not in gene2samples.keys():
+				geneDic[gene][sample] = ''
+	
+# output gene-sample matrix
+# geneDic: {gene:gene2samples, ...}
+# gene2samples: {sample:value, ...}
+def outputSumFile(geneDic, sumFile, samples):
+	row4title = [''] + sorted(samples)
+	rows = [row4title]
+	for gene, gene2samples in geneDic.items():
+		row = [gene]
+		for sample in sorted(gene2samples.keys()):
+			counts = gene2samples[sample]
+			row.append(counts)
+		rows.append(row)
+	writeCsvFile(sumFile, rows, delimiter=',')
+
 
 # Return armLoc
 # armLoc: {chr:arms, ...}
@@ -228,7 +250,8 @@ def getArmLocByBand(cytoBandFile):
 		armLoc[chr][armid] = (start4arm, end4arm, bands)
 	return armLoc
 
-# get the list of IDs in dictionary
+# Return the list of chromosome arms from armLoc
+#
 # armLoc: {chr:arms, ...}
 # arms: {arm:(start, end, bands), ...}
 # arm: arm ID (e.g. chr1_p, chr1_q) or band ID (e.g. chr1_p36.33 and chr1_q11)
@@ -603,4 +626,3 @@ def removeDirTree(path):
 		shutil.rmtree(path)
 	except OSError as e:
 		print("Error: %s : %s" % (path, e.strerror))
-

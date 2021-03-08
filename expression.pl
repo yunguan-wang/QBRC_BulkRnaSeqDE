@@ -13,8 +13,9 @@ use Cwd 'abs_path';
 # (5) pdx or not. "PDX" or "human" or "mouse" or "yeast". if "PDX", can only handle paired-end sequencing reads
 # (6) disambiguate path: prepared by Yunguan (yunguan.wang@utsouthwestern.edu), 
 #     default: /project/shared/xiao_wang/software/disambiguate_pipeline
-# (7) count: "rpkm" or "count" (integer)? For running DE.r, use "count"
+# (7) count: "rpkm" or "count" (unnormalized and integer valued)? For running DE.r, use "count"
 # (8) temp: "keep" or "delete" temporary files (default is "delete")
+# (9) short: "Y" or "N". Default is "N"
 #
 #perl /project/shared/xiao_wang/software/rnaseqDE/expression.pl \
 #/project/shared/xiao_wang/data/hg38/STAR:\
@@ -24,11 +25,14 @@ use Cwd 'abs_path';
 #/project/SCCC/Wang_lab/shared/tmp \
 #32 human \
 #/project/shared/xiao_wang/software/disambiguate_pipeline \
-#count delete
+#count delete N
 
-my ($bam_file,$gtf,$output_folder,$thread,$pdx,$disambiguate,$count,$temp)=@ARGV;
+my ($bam_file,$gtf,$output_folder,$thread,$pdx,$disambiguate,$count,$temp,$short)=@ARGV;
 my ($i,$dir,$path,$index,$fastq,$fastq_new);
-my $parameters=" --primary -O -t exon -g transcript_id -T ".$thread." --largestOverlap --minOverlap 3 --ignoreDup -p -P -B -C";
+
+my $short_parameters="--seedSearchStartLmax 30 --outFilterScoreMinOverLread 0 --outFilterMatchNminOverLread 0 ".
+  "--outFilterMatchNmin 10 --outFilterMultimapNmax 10 ";
+my $fc_parameters=" --primary -O -t exon -g transcript_id -T ".$thread." --largestOverlap --minOverlap 3 --ignoreDup -p -P -B -C";
 
 #################  clean data  ###############################
 
@@ -91,8 +95,10 @@ if ($pdx eq "PDX")
 }
 
 # STAR alignment
-system("STAR --runThreadN ".$thread." --genomeDir ".$index." --readFilesIn ".$fastq." --outFileNamePrefix ".$output_folder.
-  "/ --outSAMtype BAM Unsorted");
+if ($short eq "N") {$short_parameters="";}
+system("STAR --runThreadN ".$thread." --genomeDir ".$index." --readFilesIn ".$fastq." --quantMode TranscriptomeSAM GeneCounts ".
+  "--outFileNamePrefix ".$output_folder."/ --outSAMtype BAM Unsorted ".$short_parameters);
+system("mv ".$output_folder."/ReadsPerGene.out.tab ".$output_folder."/STAR_gene_counts.txt");
 unlink($output_folder."/Unmapped.out.mate1");
 unlink($output_folder."/Unmapped.out.mate2");
 system("rm -f -r ".$output_folder."/clean_fastq");
@@ -104,11 +110,11 @@ $bam_file=$output_folder."/Aligned.out.bam";
 unless (-f $gtf) {die "Error: Gtf annotation file doesn't exists!\n";}
 unless (-f $bam_file) {die "Error: RNA-Seq bam file doesn't exists!\n";}
 
-system("cd ".$output_folder." && featureCounts -a ".$gtf." -o ".$output_folder."/transcript.featureCounts ".$bam_file." ".$parameters." -s 0");
+system("cd ".$output_folder." && featureCounts -a ".$gtf." -o ".$output_folder."/transcript.featureCounts ".$bam_file." ".$fc_parameters." -s 0");
 system("rm -f ".$output_folder."/aligned.sam");
 unless (-f $output_folder."/transcript.featureCounts") {die "Error: featureCounts failed!\n";}
-system("cd ".$output_folder." && featureCounts -a ".$gtf." -o ".$output_folder."/transcript.featureCounts_stranded ".$bam_file." ".$parameters." -s 1");
-system("cd ".$output_folder." && featureCounts -a ".$gtf." -o ".$output_folder."/transcript.featureCounts_rev_stranded ".$bam_file." ".$parameters." -s 2");
+system("cd ".$output_folder." && featureCounts -a ".$gtf." -o ".$output_folder."/transcript.featureCounts_stranded ".$bam_file." ".$fc_parameters." -s 1");
+system("cd ".$output_folder." && featureCounts -a ".$gtf." -o ".$output_folder."/transcript.featureCounts_rev_stranded ".$bam_file." ".$fc_parameters." -s 2");
 
 # rpkm
 system("Rscript ".$path."/script/rpkm.R ".$output_folder."/transcript.featureCounts ".$count);

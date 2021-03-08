@@ -1,6 +1,17 @@
+Updates:
+
+12/08/2020: Added handling of short read alignment
+03/02/2021: Added STAR gene counts
+
+
 In this folder
 
-job_expression.pl (expression.pl) -> summarize4expression.py -> DE.r
+design4expression.py -> job_expression.pl (expression.pl) -> summarize4expression.py -> DE.r
+
+---------------------------------------
+
+File: design4expression.py
+Description: This python3 script take samples from manifest file, and create two design files, one for job_expression.pl, another for summarize4expression.py
 
 ---------------------------------------
 
@@ -18,7 +29,7 @@ Description: This perl script executes QC, alignment, and counting for raw RNA-s
 
 File: summarize4expression.py
 
-Description: This script examines the output from expression.pl for all analyzed samples, and summarizes the expression data into matrix format
+Description: This python3 script examines the output from expression.pl for all analyzed samples, and summarizes the expression data into a matrix table 
 
 -----------------------------------------
 

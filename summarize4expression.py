@@ -1,18 +1,22 @@
 '''
-Summarize the expression level from the output (transcript.featureCounts) of expression.pl, and output 
+Summarize the expression level from the output (transcript.featureCounts or transcript.featureCounts_stranded or transcript.featureCounts_rev_stranded) of expression.pl, and output 
 the gene expression level in table with one column per sample and one row per gene. 
 
 The example to run this script:
 
 - for human samples
-python3 summarizeByCoverage.py --designFile human.design4expressionsum.txt --countsFileName \
+python3 summarize4expression.py --designFile human.design4expressionsum.txt --countsFileName \
 	transcript.featureCounts --refFlat hs38d1.fa_cnvkit.txt --sumFile human.sum.txt 
 
 - for mouse samples
-python3 summarizeByCoverage.py --designFile mouse.design4expression.txt.sum --countsFileName \
+python3 summarize4expression.py --designFile mouse.design4expression.txt.sum --countsFileName \
 	transcript.featureCounts --refFlat mm10.fasta_cnvkit.txt --sumFile human.sum.txt 
 
-To get help for each parameter of the script, please run: python3 summarizeByCoverage.py -h
+- for yeast samples
+python3 summarize4expression.py --designFile yeast.design4expression.txt.sum --countsFileName \
+	transcript.featureCounts --refFlat sacCer3_cnvkit.txt --sumFile human.sum.txt 
+
+To get help for each parameter of the script, please run: python3 summarize4expression.py -h
 '''
 
 
@@ -33,7 +37,7 @@ elif os.path.isfile(os.path.join(rootDir, "script", "tools.py")):
 	from script import tools
 
 
-# In refFlat file, one gene symbol (name) may correspond to multiple transcript IDs (gene id from transcript.featureCounts file)
+# In refFlat file, one gene symbol (name) may correspond to multiple transcript IDs (gene id from transcript.featureCounts* file)
 # geneid2gene: {geneid:gene, ...}
 def getGeneid2gene(refFlat):
 	csvfile = refFlat
@@ -73,7 +77,7 @@ def replaceGeneidByGene(geneDic, geneid2gene):
 					geneDicnew[gene][sample] = []
 				geneDicnew[gene][sample].append(geneDic[geneid][sample])
 		else:
-			print('Warning: transcript ID (Geneid) {} from transcript.featureCounts files is not in refFlat file'.format(geneid))
+			print('Warning: transcript ID (Geneid) {} from transcript.featureCounts* files is not in refFlat file'.format(geneid))
 			# keep the geneid in geneDic if geneid is not in geneid2gene (refFlat file)
 			#geneDicnew[geneid] = geneDic[geneid]
 	
@@ -230,7 +234,7 @@ if __name__ == "__main__":
 
 	# Parse command line arguments
 	descriptStr = '''Process all samples in a design file and produce the summarization about the gene expression for samples'''
-	parser = argparse.ArgumentParser(prog='summarizeByCoverage.py', description = textwrap.dedent(descriptStr), 
+	parser = argparse.ArgumentParser(prog='summarize4expression.py', description = textwrap.dedent(descriptStr), 
 			formatter_class=argparse.RawDescriptionHelpFormatter)
 
 	parser.add_argument(
@@ -250,7 +254,7 @@ if __name__ == "__main__":
 		'--countsFileName', 
 		required = True,
 		default='transcript.featureCounts',
-		help = 'Feature count file of transcripts, e.g. transcript.featureCounts',
+		help = 'Feature count file of transcripts (transcript.featureCounts, transcript.featureCounts_stranded, transcript.featureCounts_rev_stranded), transcript.featureCounts by default',
 		)
 
 	parser.add_argument(
@@ -258,7 +262,7 @@ if __name__ == "__main__":
 		required = True,
 		choices=['count', 'rpkm'],
 		default='count',
-		help = "parameter determines whether the final counts are raw counts ('count') or RPKM ('rpkm')",
+		help = "parameter determines whether the final counts are raw counts ('count') or RPKM ('rpkm'), count by default",
 		)
 
 	parser.add_argument(
@@ -267,14 +271,15 @@ if __name__ == "__main__":
 		default='',
 		help = 'RefFlat file mapping gene symbol to transcript ID, e.g. \
 			/project/shared/xiao_wang/data/hg38/hs38d1.fa_cnvkit.txt for human samples, \
-		 	/project/shared/xiao_wang/data/mm10/mm10.fasta_cnvkit.txt for mouse samples',
+		 	/project/shared/xiao_wang/data/mm10/mm10.fasta_cnvkit.txt for mouse samples, \
+			/project/shared/xiao_wang/data/sacCer3_cindy/sacCer3_cnvkit.txt',
 		)
 
 	parser.add_argument(
 		'--sumFile', 
 		required = True,
-		default='',
-		help = 'Output file, which is a csv like file with columns separated by tab',
+		default='sum.csv',
+		help = 'Output file which is a csv file with header, sum.csv by default',
 		)
 
 	args = parser.parse_args()

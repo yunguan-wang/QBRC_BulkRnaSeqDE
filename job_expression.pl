@@ -8,7 +8,7 @@
 #       the third is the output folder, and the last is "PDX" or "human" or "mouse". Commented lines ("#" at the front) are skipped
 # example: the demo job submission shell script. 
 # index: STAR index
-# gtf,thread,disambiguate,count,temp: follow those in expression.pl
+# gtf,thread,disambiguate,count,temp,short: follow those in expression.pl
 # n: bundle $n somatic calling jobs into one submission
 
 #perl /project/shared/xiao_wang/software/rnaseqDE/job_expression.pl \
@@ -17,14 +17,14 @@
 #/project/shared/xiao_wang/data/hg38/STAR \
 #/project/shared/xiao_wang/data/hg38/hg38_genes.gtf \
 #32 /project/shared/xiao_wang/software/disambiguate_pipeline \
-#count delete 3
+#count delete N 3
 
 #!/usr/bin/perl
 use strict;
 use warnings;
 use Cwd 'abs_path';
 
-my ($jobs,$example,$index,$gtf,$thread,$disambiguate,$count,$temp,$n)=@ARGV;
+my ($jobs,$example,$index,$gtf,$thread,$disambiguate,$count,$temp,$short,$n)=@ARGV;
 my ($line,$line1,@items,$i,$job);
 
 my $path=abs_path($0);
@@ -56,7 +56,7 @@ while ($line=<JOB>)
   # write submission job
   @items=split("\t",$line);
   print SCRIPT "perl ".$path."/expression.pl ".$index.":".$items[0].",".$items[1]." ".$gtf." ".$items[2].
-    " ".$thread." ".$items[3]." ".$disambiguate." ".$count." ".$temp."\n";
+    " ".$thread." ".$items[3]." ".$disambiguate." ".$count." ".$temp." ".$short."\n";
 
   if ($i % $n==0)
   {
