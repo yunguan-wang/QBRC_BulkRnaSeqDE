@@ -17,30 +17,37 @@
 
 #   --gsea_plot [GSEA_PLOT], -p [GSEA_PLOT] 
 #     If GSEA plots will be made. By default no plots are made. Revert with "T"
+
 #   --species [SPECIES], -s [SPECIES]
 #     species from which the gene symbol is in. {human,mouse}
 
 #   --fccutoff [FCCUTOFF], -f [FCCUTOFF]
-#     Log fold change cutoff for volcano plot and the heatmap plot
+#     Log fold change cutoff for volcano plot. Default 1
 
-#   --pcutoff [PCUTOFF], -p [PCUTOFF]
-#     Adjusted p-value cutoff for volcano plot.
+#   --vpcutoff [VPCUTOFF], -vp [VPCUTOFF]
+#     Adjusted p-value cutoff for volcano plot. Default 0.05
+
+#   --pcutoff [PCUTOFF], -hp [PCUTOFF]
+#     Adjusted p-value cutoff for heatmap. Default 0.05
 
 #   --partialheatmap, -ph
-#     Toggle to only show relevant samples in DEG heatmap. Default show all samples
+#     Toggle to only show relevant samples in DEG heatmap. Default FALSE
 
 #   --nocolclustering, -nc
-#     Toggle to turn off column clustering in DEG heatmap. Default is to cluster
+#     Toggle to turn off column clustering in DEG heatmap. Default TRUE
+
+#   --ssgsea, -sg         
+#     Toggle to run ssGSEA for all samples. Default FALSE
 
 # Try this:
 # Rscript DE.r ./example_data/example_expression.txt ./example_data/example_group.txt -o ./results 
 #   -r /project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt -g T
-#   -f 2 -p 0.05
+#   -f 1 -hp 0.05 -vp 0.001 -ph
 
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 
-packages <- c("DESeq2","fgsea",'fastmatch','pheatmap')
+packages <- c("DESeq2","fgsea",'fastmatch','pheatmap','GSVA')
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
   BiocManager::install(setdiff(packages, rownames(installed.packages())))
 }
@@ -58,12 +65,20 @@ suppressMessages(library('dplyr'))
 suppressMessages(library('tibble'))
 suppressMessages(library('pheatmap'))
 suppressMessages(library('argparse'))
+suppressMessages(library('GSVA'))
 
-# testing
+# debug testing for using in Rstudio
+# setwd('/project/shared/xiao_wang/software/rnaseqDE/')
 # design = './example_data/example_group.txt'
 # cts = './example_data/example_expression.txt'
 # output_path = './example_results/'
-# gsea_ref = "./example_data/h.all.v7.0.symbols.gmt"
+# gsea_ref = "/project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt"
+# fc_cutoff <- 1
+# pval_cutoff <- 0.05
+# v_pval_cutoff <- 0.001
+# species <- 'human'
+# partialheatmap <- T
+# clustercol <- T
 
 parser <- ArgumentParser(
   description='Differential analysis with DESeq2')
@@ -107,11 +122,15 @@ parser$add_argument(
   
 parser$add_argument(
   '--partialheatmap','-ph',action = 'store_true', default = FALSE,
-  help = 'Toggle to only show relevant samples in DEG heatmap. Default show all samples')
+  help = 'Toggle to only show relevant samples in DEG heatmap. Default FALSE')
 
 parser$add_argument(
     '--nocolclustering', '-nc', action = 'store_false', default = TRUE,
-    help = 'Toggle to turn off column clustering in DEG heatmap. Default is to cluster')
+    help = 'Toggle to turn off column clustering in DEG heatmap. Default TRUE')
+
+parser$add_argument(
+    '--ssgsea', '-sg', action = 'store_true', default = FALSE,
+    help = 'Toggle to run ssGSEA for all samples. Default FALSE')
 
 args <- parser$parse_args()
 cts <- args$counts_fn
@@ -125,6 +144,7 @@ v_pval_cutoff <- args$vpcutoff
 species <- args$species
 partialheatmap <- args$partialheatmap
 clustercol <- args$nocolclustering
+ssgsea <- args$ssgsea
 
 # --------
 # Preprocessing input data
@@ -198,6 +218,15 @@ pheatmap(
 # Write normalized count to results.
 export_counts <- assay(vsd)
 write.table(export_counts,'deseq2 vst counts.csv', sep=',')
+
+# ssGSEA
+if (ssgsea == T) {
+  ssgsea_ref = gmtPathways(gsea_ref)
+  ssgsea_res = gsva(export_counts,ssgsea_ref,method='ssgsea')
+  pheatmap(
+    ssgsea_res,annotation_col = design['condition'],cluster_cols = clustercol, height = 15,width=10,
+    filename = "ssGSEA heatmap.pdf",sep = '')
+}
 
 # Looping through all contrasts
 for (c in analysis){
