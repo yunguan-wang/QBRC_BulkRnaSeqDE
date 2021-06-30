@@ -1,4 +1,4 @@
-# prerequisite in path: python, featureCounts, STAR (>=2.7.2b), fastqc, disambiguate (use conda env by Yunguan)
+# prerequisite in path: python (v2 or v3), featureCounts, STAR (>=2.7.2b), fastqc, disambiguate (use conda env by Yunguan)
 # can now handle hg38, mm10, sacCer3
 # need 256 GB nodes
 #!/usr/bin/perl

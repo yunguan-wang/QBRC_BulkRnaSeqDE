@@ -2,7 +2,7 @@ Updates:
 
 12/08/2020: Added handling of short read alignment
 03/02/2021: Added STAR gene counts
-
+06/29/2021: Clarified documentation in a number of places
 
 In this folder
 
@@ -10,7 +10,14 @@ design4expression.py -> job_expression.pl (expression.pl) -> summarize4expressio
 
 ---------------------------------------
 
+File: example.sh
+
+Description: This shell script is an example job submission script to be used by job_expression.pl
+
+---------------------------------------
+
 File: design4expression.py
+
 Description: This python3 script take samples from manifest file, and create two design files, one for job_expression.pl, another for summarize4expression.py
 
 ---------------------------------------

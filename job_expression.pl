@@ -2,18 +2,20 @@
 # for other job submission system, you should be able to easily change "sbatch" to the appropriate command
 # need 256GB nodes
 #
-# The instructions must be followed exactly!!! 
+# The instructions (job_expression.pl and expression.pl) must be followed exactly!!! 
+#
 # input format:
 # jobs: the batch job design file, it has 4 columns separated by \t, the first two are fastq files, 
-#       the third is the output folder, and the last is "PDX" or "human" or "mouse". Commented lines ("#" at the front) are skipped
-# example: the demo job submission shell script. 
+#       the third is the output folder, and the last is "PDX" or "human" or "mouse". 
+#       Commented lines ("#" at the front) are skipped. The second fastq file can be left in blank ("")
+# example: the demo job submission shell script. The header lines before JOBSTART will be taken for job submission
 # index: STAR index
 # gtf,thread,disambiguate,count,temp,short: follow those in expression.pl
 # n: bundle $n somatic calling jobs into one submission
 
 #perl /project/shared/xiao_wang/software/rnaseqDE/job_expression.pl \
 #/project/shared/xiao_wang/software/rnaseqDE/example_data/design4expression.txt \
-#/project/bioinformatics/Xiao_lab/shared/neoantigen/code/somatic/example/example.sh \
+#/project/shared/xiao_wang/software/rnaseqDE/example.sh \
 #/project/shared/xiao_wang/data/hg38/STAR \
 #/project/shared/xiao_wang/data/hg38/hg38_genes.gtf \
 #32 /project/shared/xiao_wang/software/disambiguate_pipeline \
