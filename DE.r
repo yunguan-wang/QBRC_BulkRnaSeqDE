@@ -75,7 +75,7 @@ suppressMessages(library('GSVA'))
 # gsea_ref = "/project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt"
 # fc_cutoff <- 1
 # pval_cutoff <- 0.05
-# v_pval_cutoff <- 0.001
+# v_pval_cutoff <- 0.05
 # species <- 'human'
 # partialheatmap <- T
 # clustercol <- T
@@ -101,8 +101,12 @@ parser$add_argument(
   help='GSEA library path. Default = "/project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt".')
 
 parser$add_argument(
-  '--gsea_plot','-g',nargs='?', default='N',
-  help='If GSEA plots will be made. By default no plots are made. Revert with "T"')
+  '--gsea_plot','-g',action = 'store_true', default = FALSE,
+  help='If GSEA plots will be made. By default no plots are made. ')
+
+parser$add_argument(
+  '--gsea_heatmap','-gh',action = 'store_true', default = FALSE,
+  help='If GSEA heatmap will be made. By default no plots are made. ')
 
 parser$add_argument(
   '--species','-s',nargs='?', default='human',
@@ -138,6 +142,7 @@ design <- args$design_fn
 output_path <- args$output
 gsea_ref <- args$gsea_ref
 gsea_plot <- args$gsea_plot
+gsea_heatmap <- args$gsea_heatmap
 fc_cutoff <- args$fccutoff
 pval_cutoff <- args$pcutoff
 v_pval_cutoff <- args$vpcutoff
@@ -152,7 +157,7 @@ ssgsea <- args$ssgsea
 # gene names must not have repeats
 design <- read.table(design,stringsAsFactors = F,header=T, sep='\t',row.names = 1)
 design=design[order(design$Group),] # by wtwt5237
-cts <- read.table(cts, stringsAsFactors = F,header=T, sep='\t', row.names = 1)
+cts <- read.table(cts, stringsAsFactors = F,header=T, sep='\t', row.names = 1, check.names = F)
 # mouse gene to human gene mapping.
 m2h = read.table(
   '/project/shared/xiao_wang/software/rnaseqDE/script/M2H_symbol_conversion.txt',
@@ -224,8 +229,9 @@ if (ssgsea == T) {
   ssgsea_ref = gmtPathways(gsea_ref)
   ssgsea_res = gsva(export_counts,ssgsea_ref,method='ssgsea')
   pheatmap(
-    ssgsea_res,annotation_col = design['condition'],cluster_cols = clustercol, height = 15,width=10,
-    filename = "ssGSEA heatmap.pdf",sep = '')
+    ssgsea_res,annotation_col = design['condition'],cluster_cols = F, 
+    height = 0.4*length(ssgsea_ref), width=0.4*dim(export_counts)[2],
+    filename = "ssGSEA heatmap.pdf",sep = '', scale = 'row')
 }
 
 # Looping through all contrasts
@@ -259,8 +265,11 @@ for (c in analysis){
   data2voc$log2FoldChange = ifelse(data2voc$log2FoldChange > 10, 10, data2voc$log2FoldChange)
   data2voc$log2FoldChange = ifelse(data2voc$log2FoldChange < -10, -10, data2voc$log2FoldChange)
   
+  data2voc$padj = ifelse(data2voc$padj > 10, 10, data2voc$padj)
+  data2voc$padj = ifelse(data2voc$padj < -10, -10, data2voc$padj)
+  
   data2voc = data2voc[order(abs(data2voc$log2FoldChange),decreasing = T),]
-  keep = row.names(data2voc)[data2voc$sig=='Significant'][1:20]
+  keep =(row.names(data2voc)[data2voc$sig=='Significant'])[1:20]
   keep = keep[!is.na(keep)]
   data2voc$Gene = NA
   data2voc[keep,"Gene"] = keep
@@ -284,11 +293,11 @@ for (c in analysis){
   if (length(tops_abs) <= 1) {
     next
   }
-  heatmap_mats = export_counts[tops_abs,]
   if (partialheatmap == T) {
-      heatmap_samples = row.names(design)[design$condition %in% c(target,ref)]
-      heatmap_mats = heatmap_mats[,heatmap_samples]
+  heatmap_samples = row.names(design)[design$condition %in% c(target,ref)]
+  } else {heatmap_samples = row.names(design)
   }
+  heatmap_mats = export_counts[tops_abs,heatmap_samples]
   # by wtwt5237 - end
   pheatmap(
     heatmap_mats,annotation_col = design['condition'],show_rownames=T, # by wtwt5237
@@ -310,10 +319,10 @@ for (c in analysis){
   
   ranks = deframe(res2)
   ranks = ranks[!is.na(ranks)]
-  pathway_kegg = gmtPathways(gsea_ref)
+  pathway_ref = gmtPathways(gsea_ref)
   
   # GSEA PreRank using LFC stat in DESeq results, which is basically logFC.
-  fgseaRes_kegg <- fgseaMultilevel(pathways=pathway_kegg, stats=ranks)
+  fgseaRes_kegg <- fgseaMultilevel(pathways=pathway_ref, stats=ranks)
   fgseaResTidy_c <- fgseaRes_kegg %>%
     as_tibble() %>%
     arrange(desc(NES))
@@ -336,14 +345,34 @@ for (c in analysis){
   ggsave(paste(output_prefix, "/GSEA.pdf",sep=""), width=9,height=16) # by wtwt5237
   
   # Make all GSEA plots
-  if (gsea_plot == 'T'){
+  if (gsea_plot == T){
     if(! dir.exists(paste(output_prefix,"GSEA_plots",sep=""))){
       dir.create(paste(output_prefix,"GSEA_plots",sep=""))
     }
     
     for (pathway_name in fgseaResTidy_c$pathway){
-      plotEnrichment(pathway_kegg[[pathway_name]], ranks)
+      plotEnrichment(pathway_ref[[pathway_name]], ranks)
       ggsave(paste(output_prefix,'/GSEA_plots/', pathway_name, '.pdf',sep='')) # by wtwt5237
+    }
+  }
+  # Make all GSEA heatmaps
+  if (gsea_heatmap == T){
+    if(! dir.exists(paste(output_prefix,"GSEA_heatmaps",sep=""))){
+      dir.create(paste(output_prefix,"GSEA_heatmaps",sep=""))
+    }
+    
+  for (pathway_name in fgseaResTidy_c$pathway){
+      pathway_genes = pathway_ref[pathway_name][[1]]
+      pathway_genes = intersect(pathway_genes, row.names(export_counts))
+      if (length(pathway_genes) >= 5) {
+        heatmap_mat = export_counts[pathway_genes,heatmap_samples]
+        heatmap_mat = heatmap_mat[apply(heatmap_mat,1,sd) > 0,]
+        pheatmap(
+          heatmap_mat,annotation_col = design['condition'],show_rownames=T, 
+          scale = 'row',cluster_cols = clustercol, height = 15,fontsize=8, 
+          filename = paste(output_prefix,"/GSEA_heatmaps/",pathway_name,".pdf",sep = '')
+        )
+      }
     }
   }
 }
