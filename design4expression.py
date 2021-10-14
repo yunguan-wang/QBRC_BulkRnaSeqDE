@@ -56,7 +56,7 @@ def mainFunc(args4mainFunc):
 	for Patient_ID,sampleDic in patientDic.items():
 		for sampleID, sample in sampleDic.items():
 			Root_tree, Data_type = sampleID
-			if Data_type != 'RNA':
+			if Data_type not in ('RNA', 'RNAseq', 'RNA-seq'):
 				continue
 			Path2output = os.path.join(result_path, Root_tree)
 			Seq_ID = sample['Seq_ID'].strip()

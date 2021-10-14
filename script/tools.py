@@ -137,7 +137,7 @@ def addSamples(geneDic, samples):
 # output gene-sample matrix
 # geneDic: {gene:gene2samples, ...}
 # gene2samples: {sample:value, ...}
-def outputSumFile(geneDic, sumFile, samples):
+def outputSumFile(geneDic, sumFile, samples, sep=','):
 	row4title = [''] + sorted(samples)
 	rows = [row4title]
 	for gene, gene2samples in geneDic.items():
@@ -146,38 +146,9 @@ def outputSumFile(geneDic, sumFile, samples):
 			counts = gene2samples[sample]
 			row.append(counts)
 		rows.append(row)
-	writeCsvFile(sumFile, rows, delimiter=',')
+	writeCsvFile(sumFile, rows, delimiter=sep)
 
-# get the list of chromosome arms from armLoc
-def intersection(p1, p2):
-	a, b = p1
-	c, d = p2
-	# Must be satisfied: a <= b and c <=d 
-	overlap = min(b, d) - max(a, c) + 1
-	return overlap
-
-# geneDic[gene][sample]='' for sample not in geneDic
-def addSamples(geneDic, samples):
-	for gene, gene2samples in geneDic.items():
-		for sample in samples:
-			if sample not in gene2samples.keys():
-				geneDic[gene][sample] = ''
 	
-# output gene-sample matrix
-# geneDic: {gene:gene2samples, ...}
-# gene2samples: {sample:value, ...}
-def outputSumFile(geneDic, sumFile, samples):
-	row4title = [''] + sorted(samples)
-	rows = [row4title]
-	for gene, gene2samples in geneDic.items():
-		row = [gene]
-		for sample in sorted(gene2samples.keys()):
-			counts = gene2samples[sample]
-			row.append(counts)
-		rows.append(row)
-	writeCsvFile(sumFile, rows, delimiter=',')
-
-
 # Return armLoc
 # armLoc: {chr:arms, ...}
 # chr: chromosome ID

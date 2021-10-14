@@ -1,4 +1,4 @@
-# prerequisite in path: python (v2 or v3), featureCounts, STAR (>=2.7.2b), fastqc, disambiguate (use conda env by Yunguan)
+# prerequisite in path: python (v2 or v3), featureCounts, R, STAR (>=2.7.2b), fastqc, disambiguate (use conda env by Yunguan)
 # can now handle hg38, mm10, sacCer3
 # need 256 GB nodes
 #!/usr/bin/perl
@@ -28,13 +28,9 @@ use Cwd 'abs_path';
 #count delete N
 
 my ($bam_file,$gtf,$output_folder,$thread,$pdx,$disambiguate,$count,$temp,$short)=@ARGV;
-my ($i,$dir,$path,$index,$fastq,$fastq_new);
+my ($short_parameters,$fc_parameters,$i,$dir,$path,$index,$fastq,$fastq_new);
 
-my $short_parameters="--seedSearchStartLmax 30 --outFilterScoreMinOverLread 0 --outFilterMatchNminOverLread 0 ".
-  "--outFilterMatchNmin 10 --outFilterMultimapNmax 10 ";
-my $fc_parameters=" --primary -O -t exon -g transcript_id -T ".$thread." --largestOverlap --minOverlap 3 --ignoreDup -p -P -B -C";
-
-#################  clean data  ###############################
+#################  set path, clean data, and set parameters  ###############################
 
 system("rm -f -r ".$output_folder);
 system("mkdir ".$output_folder);
@@ -55,11 +51,24 @@ if ($fastq!~/\s$/)
   system("python ".$path."/script/remove_empty_reads_pair.py ".
     "-out ".$output_folder."/clean_fastq -RNAfile ".$fastq);
   $fastq=$output_folder."/clean_fastq/fastq1.fq ".$output_folder."/clean_fastq/fastq2.fq";
+  $fc_parameters=" --primary -O -t exon -g transcript_id -T ".$thread." --largestOverlap --minOverlap 3 --ignoreDup -p -P -B -C";
 }else
 {
   system("python ".$path."/script/remove_empty_reads_single.py ".
     "-out ".$output_folder."/clean_fastq -RNAfile ".$fastq);
   $fastq=$output_folder."/clean_fastq/fastq1.fq";  
+  $fc_parameters=" --primary -O -t exon -g transcript_id -T ".$thread." --largestOverlap --minOverlap 3 --ignoreDup";
+}
+
+# set star and fc parameters
+if ($short eq "N") 
+{
+  $short_parameters="";
+}else
+{
+  $short_parameters="--seedSearchStartLmax 30 --outFilterScoreMinOverLread 0 --outFilterMatchNminOverLread 0 ".
+    "--outFilterMatchNmin 10 --outFilterMultimapNmax 10 ";
+  $fc_parameters.=" -M "; 
 }
 
 #################  quality check  ############################
@@ -95,7 +104,6 @@ if ($pdx eq "PDX")
 }
 
 # STAR alignment
-if ($short eq "N") {$short_parameters="";}
 system("STAR --runThreadN ".$thread." --genomeDir ".$index." --readFilesIn ".$fastq." --quantMode TranscriptomeSAM GeneCounts ".
   "--outFileNamePrefix ".$output_folder."/ --outSAMtype BAM Unsorted ".$short_parameters);
 system("mv ".$output_folder."/ReadsPerGene.out.tab ".$output_folder."/STAR_gene_counts.txt");

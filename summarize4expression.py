@@ -217,13 +217,15 @@ def mainFunc(args4main):
 
 	sumFile = args4main['sumFile'].strip()
 	geneDic = geneDicAvg
-	tools.outputSumFile(geneDic, sumFile, samples)
+	tools.outputSumFile(geneDic, sumFile, samples, sep=',')
+	sumFileTsv = sumFile + '.tsv'
+	tools.outputSumFile(geneDic, sumFileTsv, samples, sep='\t')
 
 	# summarize the qc of raw sequences
 	qcDic, samples = summarize4qc(designRows)
 	tools.addSamples(qcDic, samples)
 	sumFile4qc = sumFile + '.qc'
-	tools.outputSumFile(qcDic, sumFile4qc, samples)
+	tools.outputSumFile(qcDic, sumFile4qc, samples, sep=',')
 	#
 	print('end at', datetime.datetime.now())
 
