@@ -8,7 +8,7 @@ Differential gene expression analysis was performed using the R package ‘DEseq
 GSEA statistical analysis was carried out with the R package ‘fgsea’ (v1.14.0).
 
 
-Updates:
+### Updates:
 
 12/08/2020: Added handling of short read alignment
 03/02/2021: Added STAR gene counts
