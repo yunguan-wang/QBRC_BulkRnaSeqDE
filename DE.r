@@ -167,10 +167,6 @@ wgcna = args$wgcna
 design <- read.table(design,stringsAsFactors = F,header=T, sep='\t',row.names = 1)
 design=design[order(design$Group),] # by wtwt5237
 cts <- read.table(cts, stringsAsFactors = F,header=T, sep='\t', row.names = 1, check.names = F)
-# mouse gene to human gene mapping.
-m2h = read.table(
-  '/project/shared/xiao_wang/software/rnaseqDE/script/M2H_symbol_conversion.txt',
-  stringsAsFactors = F,header=T)
 
 # Make output file and set path to it
 dir.create(file.path(output_path), showWarnings = FALSE)
@@ -243,6 +239,7 @@ if (ssgsea == T) {
     ssgsea_res,annotation_col = design['condition'],cluster_cols = F, 
     height = 0.4*length(ssgsea_ref), width=0.4*dim(export_counts)[2],
     filename = "ssGSEA heatmap.pdf",sep = '', scale = 'row')
+    write.table(ssgsea_res,'ssGSEA_results.csv', sep=',')
 }
 
 # Looping through all contrasts
@@ -299,16 +296,20 @@ for (c in analysis){
   
   # Heatmap
   res_heatmap = res[res$padj<=pval_cutoff & !is.na(res$padj),] # by wtwt5237
+  res_up = res_heatmap[res_heatmap$log2FoldChange > fc_cutoff, ]
+  res_dn = res_heatmap[res_heatmap$log2FoldChange < -fc_cutoff, ]
   # by wtwt5237 -start
-  tops_abs = rownames(res_heatmap[order(abs(res_heatmap$stat), decreasing = T),])[1:min(100,dim(res_heatmap)[1])]
-  if (length(tops_abs) <= 1) {
+  tops = rownames(res_heatmap[order(abs(res_up$log2FoldChange), decreasing = T),])[1:min(100,dim(res_up)[1])]
+  bots = rownames(res_heatmap[order(abs(res_dn$log2FoldChange), decreasing = T),])[1:min(100,dim(res_dn)[1])]
+  top_genes = append(tops, bots)
+  if (length(tops) <= 1) {
     next
   }
   if (partialheatmap == T) {
   heatmap_samples = row.names(design)[design$condition %in% c(target,ref)]
   } else {heatmap_samples = row.names(design)
   }
-  heatmap_mats = export_counts[tops_abs,heatmap_samples]
+  heatmap_mats = export_counts[top_genes,heatmap_samples]
   # by wtwt5237 - end
   pheatmap(
     heatmap_mats,annotation_col = design['condition'],show_rownames=T, # by wtwt5237
@@ -323,6 +324,9 @@ for (c in analysis){
   
   # If input is in mouse symbols, do id conversion before GSEA.
   if (species == 'mouse') {
+    m2h = read.table(
+      '/project/shared/xiao_wang/software/rnaseqDE/script/M2H_symbol_conversion.txt',
+      stringsAsFactors = F,header=T)
     res2 = merge(as.data.frame(res2),m2h, by.x = 'gene', by.y = 'Symbol_x')
     res2 = aggregate(res2$stat, list(res2$Human_symbol), median)
     colnames(res2) = c('gene','stat')
@@ -332,7 +336,7 @@ for (c in analysis){
   ranks = ranks[!is.na(ranks)]
   pathway_ref = gmtPathways(gsea_ref)
   
-  # GSEA PreRank using LFC stat in DESeq results, which is basically logFC.
+  # GSEA PreRank using LFC log2FoldChange in DESeq results, which is basically logFC.
   fgseaRes_kegg <- fgseaMultilevel(pathways=pathway_ref, stats=ranks)
   fgseaResTidy_c <- fgseaRes_kegg %>%
     as_tibble() %>%
