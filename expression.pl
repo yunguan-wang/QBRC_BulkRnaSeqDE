@@ -32,9 +32,6 @@ my ($short_parameters,$fc_parameters,$i,$dir,$path,$index,$fastq,$fastq_new);
 
 #################  set path, clean data, and set parameters  ###############################
 
-system("rm -f -r ".$output_folder);
-system("mkdir ".$output_folder);
-
 $path=abs_path($0);
 $path=~s/expression\.pl//;
 
@@ -44,6 +41,7 @@ $fastq=$2;
 $fastq=~s/,/ /;
 
 # delete emptoy reads
+if (! -d $output_folder) {system("mkdir ".$output_folder);}
 system("mkdir ".$output_folder."/clean_fastq");
 
 if ($fastq!~/\s$/)

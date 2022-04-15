@@ -3,6 +3,7 @@ Updates:
 12/08/2020: Added handling of short read alignment
 03/02/2021: Added STAR gene counts
 06/29/2021: Clarified documentation in a number of places
+01/25/2022: Writing stderr and stdout to job folders
 
 In this folder
 

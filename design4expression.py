@@ -131,7 +131,7 @@ if __name__ == "__main__":
 		'manifest_file', 
 		type=str,
 		default='',
-		help = 'Input, manifest file of samples, must have header line with column names, see example_data/manifest.txt',
+		help = 'Input, manifest file with header line for samples, with tab-delimited columns, see example_data/manifest.txt',
 		)
 	parser.add_argument(
 		'result_path', 

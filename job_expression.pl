@@ -57,8 +57,11 @@ while ($line=<JOB>)
 
   # write submission job
   @items=split("\t",$line);
+  system("rm -f -r ".$items[2]);
+  system("mkdir ".$items[2]);
   print SCRIPT "perl ".$path."/expression.pl ".$index.":".$items[0].",".$items[1]." ".$gtf." ".$items[2].
-    " ".$thread." ".$items[3]." ".$disambiguate." ".$count." ".$temp." ".$short."\n";
+    " ".$thread." ".$items[3]." ".$disambiguate." ".$count." ".$temp." ".$short.
+    " 2> ".$items[2]."/job_error.txt 1> ".$items[2]."/job_output.txt\n";
 
   if ($i % $n==0)
   {

@@ -138,11 +138,19 @@ def addSamples(geneDic, samples):
 # geneDic: {gene:gene2samples, ...}
 # gene2samples: {sample:value, ...}
 def outputSumFile(geneDic, sumFile, samples, sep=','):
-	row4title = [''] + sorted(samples)
+	samples = sorted(samples)
+	row4title = [''] + samples
 	rows = [row4title]
 	for gene, gene2samples in geneDic.items():
 		row = [gene]
-		for sample in sorted(gene2samples.keys()):
+
+		samplesSorted = sorted(gene2samples.keys())
+
+		if samples != samplesSorted:
+			e = "Error, different sample orders:\n{}\n{}".format(samples, samplesSorted)
+			raise RuntimeError(e)
+			
+		for sample in samplesSorted:
 			counts = gene2samples[sample]
 			row.append(counts)
 		rows.append(row)
