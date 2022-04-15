@@ -1,4 +1,14 @@
-Updates:
+### Dependencies
+Reads were aligned to reference (GRCh38) with ‘STAR’ (v2.7.2b). 
+
+Gene counts were quantified with ‘FeatureCounts’ (v1.6.4).
+
+Differential gene expression analysis was performed using the R package ‘DEseq2’(v1.26).
+
+GSEA statistical analysis was carried out with the R package ‘fgsea’ (v1.14.0).
+
+
+### Updates:
 
 12/08/2020: Added handling of short read alignment
 03/02/2021: Added STAR gene counts
