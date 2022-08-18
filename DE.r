@@ -4,7 +4,7 @@
 # positional arguments:
 #   counts_fn             Input counts table, txt format. Genes should be in raw counts.
 
-#   design_fn             Input design table, must be a txt file. First column is condition, second column in contrast. Different contrasts are seperated by ","
+#   design_fn             Input design table, must be a txt file. Three columns: {ID, Group, Contrasts}. Different contrasts are seperated by ",".
 
 # optional arguments:
 #   -h, --help            show this help message and exit
@@ -145,6 +145,20 @@ parser$add_argument(
     help = 'Toggle to run WGCNA for all samples. Default FALSE')
 
 args <- parser$parse_args()
+
+# Debug purpose only
+# args <- parser$parse_args(
+#   c(
+#     '/project/shared/arteaga_xie/Ariella/BRE0776_rnaseq/Counts.txt',
+#     '/project/shared/arteaga_xie/Ariella/BRE0776_rnaseq/DE_design.txt',
+#     '-r',
+#     '/home2/s190548/work_personal/ref/msigdb/hallmark_brca.gmt',
+#     '-g',
+#     '-gh',
+#     '-ph',
+#     '-nc')
+#   )
+
 cts <- args$counts_fn
 design <- args$design_fn
 output_path <- args$output
@@ -165,7 +179,7 @@ wgcna = args$wgcna
 
 # gene names must not have repeats
 design <- read.table(design,stringsAsFactors = F,header=T, sep='\t',row.names = 1)
-design=design[order(design$Group),] # by wtwt5237
+# design=design[order(design$Group),] # by wtwt5237
 cts <- read.table(cts, stringsAsFactors = F,header=T, sep='\t', row.names = 1, check.names = F)
 
 # Make output file and set path to it
@@ -218,8 +232,8 @@ ggplot(
   geom_point(size=3) +
   xlab(paste0("PC1: ",percentVar[1],"% variance")) +
   ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
-  geom_text_repel(aes(label = Name), size = 4)
-ggsave('PCA_plot.pdf',height = 5, width = 5)
+  geom_text_repel(aes(label = Name), size = 2)
+ggsave('PCA_plot.pdf',height = 10, width = 10)
 
 # Distance plot
 corr <- cor(assay(vsd), method='pearson')
@@ -233,11 +247,24 @@ write.table(export_counts,'deseq2 vst counts.csv', sep=',')
 
 # ssGSEA
 if (ssgsea == T) {
+  ssgsea_counts = export_counts
+  keep_cols = colnames(ssgsea_counts)
+    if (species == 'mouse') {
+      m2h = read.table(
+        '/project/shared/xiao_wang/software/rnaseqDE/script/M2H_symbol_conversion.txt',
+        stringsAsFactors = F,header=T)
+      ssgsea_counts = merge(
+        as.data.frame(ssgsea_counts),m2h, by.x = 'row.names', by.y = 'Symbol_x')
+      ssgsea_counts = aggregate(ssgsea_counts, list(ssgsea_counts$Human_symbol), median)
+      row.names(ssgsea_counts) = ssgsea_counts$Group.1
+      ssgsea_counts = as.matrix(ssgsea_counts[,keep_cols])
+      print(ssgsea_counts[1:5,1:10])
+    }
   ssgsea_ref = gmtPathways(gsea_ref)
-  ssgsea_res = gsva(export_counts,ssgsea_ref,method='ssgsea')
+  ssgsea_res = gsva(ssgsea_counts, ssgsea_ref, method='ssgsea')
   pheatmap(
     ssgsea_res,annotation_col = design['condition'],cluster_cols = F, 
-    height = 0.4*length(ssgsea_ref), width=0.4*dim(export_counts)[2],
+    height = 0.1*length(ssgsea_res), width=0.4*dim(ssgsea_counts)[2],
     filename = "ssGSEA heatmap.pdf",sep = '', scale = 'row')
     write.table(ssgsea_res,'ssGSEA_results.csv', sep=',')
 }
@@ -276,9 +303,13 @@ for (c in analysis){
   data2voc$log2FoldChange = ifelse(data2voc$log2FoldChange > 10, 10, data2voc$log2FoldChange)
   data2voc$log2FoldChange = ifelse(data2voc$log2FoldChange < -10, -10, data2voc$log2FoldChange)
   
-  data2voc = data2voc[order(abs(data2voc$log2FoldChange),decreasing = T),]
-  keep = row.names(data2voc)[data2voc$sig %in% c('Significant Up','Significant Down')][1:20]
-  keep = keep[!is.na(keep)]
+  data2voc = data2voc[order(data2voc$stat,decreasing = T),]
+  top_voc_genes = row.names(data2voc[data2voc$sig == 'Significant Up',])[1:10]
+  top_voc_genes = top_voc_genes[!is.na(top_voc_genes)] 
+  data2voc = data2voc[order(data2voc$stat,decreasing = F),]
+  dn_voc_genes = row.names(data2voc[data2voc$sig == 'Significant Down',])[1:10]
+  dn_voc_genes = dn_voc_genes[!is.na(dn_voc_genes)] 
+  keep = append(top_voc_genes, dn_voc_genes)
   data2voc$Gene = NA
   data2voc[keep,"Gene"] = keep
 
@@ -299,8 +330,8 @@ for (c in analysis){
   res_up = res_heatmap[res_heatmap$log2FoldChange > fc_cutoff, ]
   res_dn = res_heatmap[res_heatmap$log2FoldChange < -fc_cutoff, ]
   # by wtwt5237 -start
-  tops = rownames(res_heatmap[order(abs(res_up$log2FoldChange), decreasing = T),])[1:min(100,dim(res_up)[1])]
-  bots = rownames(res_heatmap[order(abs(res_dn$log2FoldChange), decreasing = T),])[1:min(100,dim(res_dn)[1])]
+  tops = rownames(res_up[order(abs(res_up$log2FoldChange), decreasing = T),])[1:min(100,dim(res_up)[1])]
+  bots = rownames(res_dn[order(abs(res_dn$log2FoldChange), decreasing = T),])[1:min(100,dim(res_dn)[1])]
   top_genes = append(tops, bots)
   if (length(tops) <= 1) {
     next
@@ -314,7 +345,9 @@ for (c in analysis){
   pheatmap(
     heatmap_mats,annotation_col = design['condition'],show_rownames=T, # by wtwt5237
     scale = 'row',cluster_cols = clustercol, height = 15,fontsize=6, # by wtwt5237 
-    filename = paste(output_prefix,"/DEG_heatmap.pdf",sep = '')) # by wtwt5237
+    filename = paste(output_prefix,"/DEG_heatmap.pdf",sep = ''),
+    # breaks = c(-2.5, 0, 2.5),
+    ) 
   
   # ========
   # GSEA analysis
@@ -351,6 +384,7 @@ for (c in analysis){
   # Todo: Added a handle to turn this off in argument.
   # Bar plot of all pathways passing padj <=0.25 mark. 
   fgseaResTidy_c = fgseaResTidy_c[fgseaResTidy_c$padj<=0.25,]
+  fgseaResTidy_c = fgseaResTidy_c[!is.na(fgseaResTidy_c$pathway),] # remove NA pathways
   ggplot(
     fgseaResTidy_c, aes(reorder(pathway, NES), NES)
   ) + geom_col(aes(fill=padj<0.25)) + coord_flip() +
@@ -366,6 +400,7 @@ for (c in analysis){
     }
     
     for (pathway_name in fgseaResTidy_c$pathway){
+      print(pathway_name)
       plotEnrichment(pathway_ref[[pathway_name]], ranks)
       ggsave(paste(output_prefix,'/GSEA_plots/', pathway_name, '.pdf',sep='')) # by wtwt5237
     }
@@ -378,13 +413,16 @@ for (c in analysis){
     
   for (pathway_name in fgseaResTidy_c$pathway){
       pathway_genes = pathway_ref[pathway_name][[1]]
+      if (species == 'mouse') {
+        pathway_genes = m2h[m2h$Human_symbol %in% pathway_genes,]$Symbol_x
+      }
       pathway_genes = intersect(pathway_genes, row.names(export_counts))
       if (length(pathway_genes) >= 5) {
         heatmap_mat = export_counts[pathway_genes,heatmap_samples]
         heatmap_mat = heatmap_mat[apply(heatmap_mat,1,sd) > 0,]
         pheatmap(
           heatmap_mat,annotation_col = design['condition'],show_rownames=T, 
-          scale = 'row',cluster_cols = clustercol, height = 15,fontsize=8, 
+          scale = 'row',cluster_cols = clustercol, height = 0.25*length(pathway_genes),fontsize=10, 
           filename = paste(output_prefix,"/GSEA_heatmaps/",pathway_name,".pdf",sep = '')
         )
       }

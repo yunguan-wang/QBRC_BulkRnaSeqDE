@@ -22,7 +22,7 @@ use Cwd 'abs_path';
 #/archive/BICF/shared/Kidney/rna/RAW/SAM24297102_1_R1.fastq.gz,\
 #/archive/BICF/shared/Kidney/rna/RAW/SAM24297102_1_R2.fastq.gz \
 #/project/shared/xiao_wang/data/hg38/hg38_genes.gtf \
-#/project/SCCC/Wang_lab/shared/tmp \
+#/project/DPDS/Wang_lab/shared/tmp \
 #32 human \
 #/project/shared/xiao_wang/software/disambiguate_pipeline \
 #count delete N
