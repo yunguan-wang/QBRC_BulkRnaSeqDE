@@ -66,7 +66,7 @@ while ($line=<JOB>)
   if ($i % $n==0)
   {
     close(SCRIPT); 
-    system("sbatch ".$job);
+    system("bsub < ".$job);
     unlink($job);
     sleep(1);
   }
@@ -77,7 +77,7 @@ close(JOB);
 if ($i % $n!=0)
 {
   close(SCRIPT);
-  system("sbatch ".$job);
+  system("bsub < ".$job);
   unlink($job);
 }
 

@@ -13,7 +13,7 @@
 #     Output path. Default = "./results"
 
 #   --gsea_ref [GSEA_REF], -r [GSEA_REF] 
-#     GSEA library path. Must specify full path. Default = "/project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt".
+#     GSEA library path. Must specify full path. Default = "/users/wanzx2/ref/msigdb/h.all.v7.0.symbols.gmt".
 
 #   --gsea_plot [GSEA_PLOT], -p [GSEA_PLOT] 
 #     If GSEA plots will be made. By default no plots are made. Revert with "T"
@@ -101,8 +101,8 @@ parser$add_argument(
 
 parser$add_argument(
   '--gsea_ref','-r',nargs='?', 
-  default='/project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt',
-  help='GSEA library path. Default = "/project/shared/xiao_wang/software/rnaseqDE/example_data/h.all.v7.0.symbols.gmt".')
+  default='/users/wanzx2/ref/msigdb/h.all.v7.0.symbols.gmt',
+  help='GSEA library path. Default = "/users/wanzx2/ref/msigdb/h.all.v7.0.symbols.gmt".')
 
 parser$add_argument(
   '--gsea_plot','-g',action = 'store_true', default = FALSE,
@@ -115,6 +115,10 @@ parser$add_argument(
 parser$add_argument(
   '--species','-s',nargs='?', default='human',
   help='Species from which the gene symbol is in {human, mouse}. Default human')
+
+parser$add_argument(
+  '--volcano_gene','-vg',nargs='?', default='',
+  help='Genes to show on the volcano plot instead of top ones. up and dn lists are sep by "_", genes were sep by ",". ')
 
 parser$add_argument(
   '--fccutoff','-f',nargs='?', default=1, type='double',
@@ -144,6 +148,10 @@ parser$add_argument(
     '--wgcna', '-w', action = 'store_true', default = FALSE,
     help = 'Toggle to run WGCNA for all samples. Default FALSE')
 
+parser$add_argument(
+    '--no_normalization', '-n', action = 'store_true', default = FALSE,
+    help = 'Toggle to turn off normalization. Default FALSE')
+
 args <- parser$parse_args()
 
 # Debug purpose only
@@ -172,7 +180,9 @@ species <- args$species
 partialheatmap <- args$partialheatmap
 clustercol <- args$nocolclustering
 ssgsea <- args$ssgsea
+no_normalization = args$no_normalization
 wgcna = args$wgcna
+volcano_gene = args$volcano_gene
 
 # --------
 # Preprocessing input data
@@ -221,6 +231,10 @@ dds = dds[keep,]
 
 # PCA based on DESeq2 normalized counts
 dds <- estimateSizeFactors(dds)
+if (no_normalization == TRUE) {
+  sizeFactors(dds) = rep(1, dim(cts)[2])
+  print('Setting all size factors to 1 as requested.')
+}
 dds <- estimateDispersions(dds)
 dds <- nbinomWaldTest(dds)
 vsd <- vst(dds, blind=FALSE)
@@ -243,7 +257,7 @@ pheatmap(
 
 # Write normalized count to results.
 export_counts <- assay(vsd)
-write.table(export_counts,'deseq2 vst counts.csv', sep=',')
+write.table(export_counts,'deseq2 vst counts.csv', sep=',', col.names=NA)
 
 # ssGSEA
 if (ssgsea == T) {
@@ -251,7 +265,7 @@ if (ssgsea == T) {
   keep_cols = colnames(ssgsea_counts)
     if (species == 'mouse') {
       m2h = read.table(
-        '/project/shared/xiao_wang/software/rnaseqDE/script/M2H_symbol_conversion.txt',
+        '/users/wanzx2/ref/msigdb/M2H_symbol_conversion.txt',
         stringsAsFactors = F,header=T)
       ssgsea_counts = merge(
         as.data.frame(ssgsea_counts),m2h, by.x = 'row.names', by.y = 'Symbol_x')
@@ -264,9 +278,9 @@ if (ssgsea == T) {
   ssgsea_res = gsva(ssgsea_counts, ssgsea_ref, method='ssgsea')
   pheatmap(
     ssgsea_res,annotation_col = design['condition'],cluster_cols = F, 
-    height = 0.1*length(ssgsea_res), width=0.4*dim(ssgsea_counts)[2],
+    height = 0.02*length(ssgsea_res), width=0.4*dim(ssgsea_counts)[2],
     filename = "ssGSEA heatmap.pdf",sep = '', scale = 'row')
-    write.table(ssgsea_res,'ssGSEA_results.csv', sep=',')
+    write.table(ssgsea_res,'ssGSEA_results.csv', sep=',', col.names=NA)
 }
 
 # Looping through all contrasts
@@ -285,7 +299,7 @@ for (c in analysis){
   output_prefix = paste(target,"_vs_",ref, '/', sep = '')
   dir.create(file.path(output_prefix), showWarnings = FALSE)
   # writing results
-  write.table(as.data.frame(res),
+  write.table(as.data.frame(res), col.names=NA,
             file=paste(output_prefix,'/DEG.txt',sep=""),sep='\t') # by wtwt5237
   
   # Volcano plot
@@ -310,6 +324,13 @@ for (c in analysis){
   dn_voc_genes = row.names(data2voc[data2voc$sig == 'Significant Down',])[1:10]
   dn_voc_genes = dn_voc_genes[!is.na(dn_voc_genes)] 
   keep = append(top_voc_genes, dn_voc_genes)
+  if (volcano_gene != '') {
+    keep_up = strsplit(strsplit(volcano_gene, split='_')[[1]][[1]], split=',')[[1]]
+    keep_dn = strsplit(strsplit(volcano_gene, split='_')[[1]][[2]], split=',')[[1]]
+    keep_up = keep_up[keep_up %in% row.names(data2voc[data2voc$sig == 'Significant Up',])]
+    keep_dn = keep_dn[keep_dn %in% row.names(data2voc[data2voc$sig == 'Significant Down',])]
+    keep = append(keep_up, keep_dn)
+  }
   data2voc$Gene = NA
   data2voc[keep,"Gene"] = keep
 
@@ -358,7 +379,7 @@ for (c in analysis){
   # If input is in mouse symbols, do id conversion before GSEA.
   if (species == 'mouse') {
     m2h = read.table(
-      '/project/shared/xiao_wang/software/rnaseqDE/script/M2H_symbol_conversion.txt',
+      '/users/wanzx2/ref/msigdb/M2H_symbol_conversion.txt',
       stringsAsFactors = F,header=T)
     res2 = merge(as.data.frame(res2),m2h, by.x = 'gene', by.y = 'Symbol_x')
     res2 = aggregate(res2$stat, list(res2$Human_symbol), median)
@@ -379,7 +400,7 @@ for (c in analysis){
   df_pathway <- as.data.frame(fgseaResTidy_c)
   df_pathway$leadingEdge <- unlist(lapply(df_pathway$leadingEdge, function (x){
     paste(x,collapse=', ')}))
-  write.table(df_pathway, file=paste(output_prefix,'/pathways.txt',sep=""), sep='\t') # by wtwt5237
+  write.table(df_pathway, file=paste(output_prefix,'/pathways.txt',sep=""), sep='\t',col.names=NA) # by wtwt523
   
   # Todo: Added a handle to turn this off in argument.
   # Bar plot of all pathways passing padj <=0.25 mark. 
@@ -555,5 +576,5 @@ if (wgcna == T) {
 
   sig_modules1 = sub("ME", "", sig_modules)
   sigtab <- tab[tab$module %in% sig_modules1, ]
-  write.table(sigtab, file = "WGCNA_Results/GOEnrichmentTable.csv", sep = ",", quote = TRUE, row.names = FALSE)
+  write.table(sigtab, file = "WGCNA_Results/GOEnrichmentTable.csv", sep = ",", quote = TRUE, row.names = FALSE, col.names=NA)
 }
