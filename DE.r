@@ -50,15 +50,24 @@
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 
-packages <- c("DESeq2","fgsea",'fastmatch','pheatmap','GSVA', 'WGCNA', "HybridMTest")
+# packages <- c("DESeq2","fgsea",'fastmatch','pheatmap','GSVA', 'WGCNA', "HybridMTest")
+# if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
+#   BiocManager::install(setdiff(packages, rownames(installed.packages())))
+# }
+packages <- c("DESeq2","fgsea",'fastmatch','pheatmap','GSVA')
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
   BiocManager::install(setdiff(packages, rownames(installed.packages())))
 }
 
-packages <- c("ggplot2", "dplyr",'tibble','argparse', 'readr', 'gprofiler2')
+packages <- c("ggplot2", "dplyr",'tibble','argparse', 'readr')
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
   install.packages(setdiff(packages, rownames(installed.packages())))  
 }
+
+# packages <- c("ggplot2", "dplyr",'tibble','argparse', 'readr', 'gprofiler2')
+# if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
+#   install.packages(setdiff(packages, rownames(installed.packages())))  
+# }
 
 suppressMessages(library('DESeq2'))
 suppressMessages(library('ggplot2'))
@@ -67,9 +76,10 @@ suppressMessages(library('fgsea'))
 suppressMessages(library('dplyr'))
 suppressMessages(library('tibble'))
 suppressMessages(library('pheatmap'))
+# suppressMessages(library('ComplexHeatmap'))
 suppressMessages(library('argparse'))
 suppressMessages(library('GSVA'))
-suppressMessages(library('gprofiler2'))
+# suppressMessages(library('gprofiler2'))
 
 # debug testing for using in Rstudio
 # setwd('/project/shared/xiao_wang/software/rnaseqDE/')
@@ -188,7 +198,7 @@ volcano_gene = args$volcano_gene
 # Preprocessing input data
 
 # gene names must not have repeats
-design <- read.table(design,stringsAsFactors = F,header=T, sep='\t',row.names = 1)
+design <- read.table(design,stringsAsFactors = F,header=T, sep='\t',row.names = 1, comment.char="#")
 # design=design[order(design$Group),] # by wtwt5237
 cts <- read.table(cts, stringsAsFactors = F,header=T, sep='\t', row.names = 1, check.names = F)
 
@@ -237,7 +247,10 @@ if (no_normalization == TRUE) {
 }
 dds <- estimateDispersions(dds)
 dds <- nbinomWaldTest(dds)
-vsd <- vst(dds, blind=FALSE)
+# Temp Fix issue when the reads are too sparse.
+nsub = min(1000,sum(rowMeans(counts(dds, normalized=TRUE)) > 5 ))
+vsd <- vst(dds, blind=FALSE, nsub = nsub) 
+# vsd <- vst(dds, blind=FALSE)
 pcaData <- plotPCA(vsd, intgroup=c("condition"), returnData=TRUE)
 percentVar <- round(100 * attr(pcaData, "percentVar"))
 pcaData['Name'] = row.names(pcaData)
@@ -354,21 +367,19 @@ for (c in analysis){
   tops = rownames(res_up[order(abs(res_up$log2FoldChange), decreasing = T),])[1:min(100,dim(res_up)[1])]
   bots = rownames(res_dn[order(abs(res_dn$log2FoldChange), decreasing = T),])[1:min(100,dim(res_dn)[1])]
   top_genes = append(tops, bots)
-  if (length(tops) <= 1) {
-    next
-  }
+  top_genes = top_genes[!is.na(top_genes)]
   if (partialheatmap == T) {
-  heatmap_samples = row.names(design)[design$condition %in% c(target,ref)]
-  } else {heatmap_samples = row.names(design)
-  }
+    heatmap_samples = row.names(design)[design$condition %in% c(target,ref)]
+  } else {heatmap_samples = row.names(design)}
+
+  if (length(top_genes)>=1) {
   heatmap_mats = export_counts[top_genes,heatmap_samples]
-  # by wtwt5237 - end
   pheatmap(
     heatmap_mats,annotation_col = design['condition'],show_rownames=T, # by wtwt5237
     scale = 'row',cluster_cols = clustercol, height = 15,fontsize=6, # by wtwt5237 
-    filename = paste(output_prefix,"/DEG_heatmap.pdf",sep = ''),
-    # breaks = c(-2.5, 0, 2.5),
+    filename = paste(output_prefix,"/DEG_heatmap.pdf",sep = '')
     ) 
+  }
   
   # ========
   # GSEA analysis

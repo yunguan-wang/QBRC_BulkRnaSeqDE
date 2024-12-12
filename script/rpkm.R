@@ -16,27 +16,28 @@ rpkm<-function(x,count)
   x
 }
 
-for (suffix in c("","_stranded","_rev_stranded"))
+# for (suffix in c("","_stranded","_rev_stranded"))
+for (suffix in c(""))
 {
   # count file
-  file=paste(file0,suffix,sep="")
+  file=paste(file0,'.rpkm',sep="")
   
-  transcript_exp=read.table(file,stringsAsFactors = F,header=T)
+  transcript_exp=read.table(file0,stringsAsFactors = F,header=T)
   colnames(transcript_exp)[7]="expression"
   transcript_exp=rpkm(transcript_exp,count)
   
   write.table(transcript_exp,file=file,sep="\t",quote=F,row.names = F)
   
-  # strandedness
-  assigned=read.table(paste(file,".summary",sep=""),header=T,sep="\t")[1,2]
-  assigned_all[[paste("dummy_",suffix,sep="")]]=assigned
+  # # strandedness
+  # assigned=read.table(paste(file,".summary",sep=""),header=T,sep="\t")[1,2]
+  # assigned_all[[paste("dummy_",suffix,sep="")]]=assigned
 }
 
-# check strandedness
-strand="unknown"
-if ((assigned_all$dummy__stranded+assigned_all$dummy__rev_stranded)/assigned_all$dummy_>0.9) {strand="unstranded"}
-if (assigned_all$dummy__stranded/assigned_all$dummy__rev_stranded>10) {strand="stranded"}
-if (assigned_all$dummy__rev_stranded/assigned_all$dummy__stranded>10) {strand="rev_stranded"}
+# # check strandedness
+# strand="unknown"
+# if ((assigned_all$dummy__stranded+assigned_all$dummy__rev_stranded)/assigned_all$dummy_>0.9) {strand="unstranded"}
+# if (assigned_all$dummy__stranded/assigned_all$dummy__rev_stranded>10) {strand="stranded"}
+# if (assigned_all$dummy__rev_stranded/assigned_all$dummy__stranded>10) {strand="rev_stranded"}
 
-write.table(paste(strand,count),file=paste(file0,"_parameters",sep=""),
-            sep="\t",quote=F,row.names = F,col.names = F)
+# write.table(paste(strand,count),file=paste(file0,"_parameters",sep=""),
+            # sep="\t",quote=F,row.names = F,col.names = F)
